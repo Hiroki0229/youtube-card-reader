@@ -3,7 +3,9 @@
 Turn any YouTube video or web article into a deck of timestamped knowledge cards you can flip
 through, jump back into, ask questions about, and file away in Obsidian.
 
-![Youtube Card Reader](docs/images/preview.png)
+![Youtube Card Reader demo](docs/images/demo.gif)
+
+*The full 25 second walkthrough, with sound: [docs/promo-en.mp4](docs/promo-en.mp4)*
 
 Paste a link, press Start. The app fetches a transcript, splits the content into cards, and puts
 the video on the left and the cards on the right. Every card carries the timestamp it came from,
@@ -32,6 +34,8 @@ API key at all, because the default text engine is a set of free models.
   dropdown, plus an auto mode with fallback.
 - **Bilingual interface, six output languages.** The UI reads in English or Traditional Chinese;
   the cards can be written in any of six languages. The two settings are independent.
+
+![Youtube Card Reader](docs/images/preview.png)
 
 ![Cards and the ask panel](docs/images/cards.png)
 
