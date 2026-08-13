@@ -253,7 +253,10 @@ button:disabled{cursor:not-allowed}
 .float-window-head h3{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0;color:var(--text);font-size:14px;font-weight:800}
 .float-window-min{width:29px;height:29px;border:1px solid var(--border);border-radius:var(--radius-small);background:var(--surface);color:var(--text-faint);transition:all .2s ease}
 .float-window-min:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
-.float-window-body{overflow-y:auto;padding:14px}
+/* flex 子項的 min-height 預設是 auto，不補 min-height:0 這一塊就不會縮到比內容小：
+   它會撐破 .float-window 的 max-height、被 overflow:hidden 裁掉又捲不動，
+   筆記存了幾張卡之後「存入 Obsidian」按鈕就變成點不到。 */
+.float-window-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:14px}
 .notes{display:flex;flex-direction:column;gap:12px}
 .float-window-body .notes{position:static;max-height:none}
 .notes-head{display:flex;align-items:center;gap:8px}.notes-head h3{margin:0;font-size:14px}.notes-head .count{margin-left:auto;color:var(--text-faint);font:600 10.5px/1 var(--mono)}
