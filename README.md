@@ -42,7 +42,7 @@ API key at all, because the default text engine is a set of free models.
 Requires **Python 3.10+** and **Node.js 18+**. Nothing else.
 
 ```bash
-git clone https://github.com/YOUR-NAME/youtube-card-reader.git
+git clone https://github.com/chang416/youtube-card-reader.git
 cd youtube-card-reader
 ./scripts/start.sh
 ```
