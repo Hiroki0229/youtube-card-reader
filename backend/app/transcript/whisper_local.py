@@ -14,7 +14,7 @@ import sys
 import tempfile
 from typing import Optional, Tuple
 
-from app.core import config
+from app.core import config, messages
 from app.transcript import cache
 
 _model = None
@@ -24,7 +24,7 @@ _model_size: Optional[str] = None
 def _get_model():
     """延遲載入 Whisper 模型（第一次會自動下載模型檔）。"""
     global _model, _model_size
-    size = (config.get("WHISPER_MODEL") or "small").strip() or "small"
+    size = (config.get("WHISPER_MODEL") or "large-v3-turbo").strip() or "large-v3-turbo"
     if _model is None or size != _model_size:
         from faster_whisper import WhisperModel
         # CPU + int8 + 用滿執行緒：在一般筆電（含 Apple Silicon）上盡量快
@@ -44,12 +44,12 @@ def download_audio(url: str, tmpdir: str) -> str:
     except subprocess.CalledProcessError as e:
         msg = (e.stderr or e.stdout or "").strip().splitlines()
         tail = msg[-1] if msg else str(e)
-        raise ValueError(f"無法下載此影片的音訊（可能不支援、需登入或已下架）：{tail}")
+        raise ValueError(messages.t("whisper.download_failed", detail=tail))
     except subprocess.TimeoutExpired:
-        raise ValueError("下載音訊逾時，影片可能過長或網路太慢。")
+        raise ValueError(messages.t("whisper.download_timeout"))
     files = glob.glob(os.path.join(tmpdir, "audio.*"))
     if not files:
-        raise ValueError("找不到下載的音訊檔。")
+        raise ValueError(messages.t("whisper.audio_missing"))
     return files[0]
 
 
@@ -62,7 +62,7 @@ def transcribe_file(path: str) -> Tuple[str, bool]:
     lines = [f"[{int(s.start)}] {(s.text or '').strip()}" for s in segments if (s.text or "").strip()]
     text = "\n".join(lines)
     if not text:
-        raise ValueError("這段音訊沒有可辨識的語音內容。")
+        raise ValueError(messages.t("whisper.no_speech"))
     return text, (getattr(info, "language", "") or "").startswith("zh")
 
 

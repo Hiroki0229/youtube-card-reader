@@ -2,7 +2,7 @@
 
 provider 格式：
   - None / "" / "auto"        自動：先免費模型接力，全滅才落到已設定金鑰的付費供應商
-  - "gemini"                  嚴格：只用 gemini-3.5-flash-lite
+  - "gemini"                  嚴格：只用 gemini-flash-lite-latest
   - "opencode:<model_id>"     嚴格：只用該 OpenCode 免費模型
   - "deepseek:<model_id>"     嚴格：只用該 DeepSeek 模型
   - "openai:<model_id>"       嚴格：只用該 OpenAI 模型
@@ -10,6 +10,7 @@ provider 格式：
 """
 from typing import Any, Callable, Optional, Tuple
 
+from app.core import messages
 from app.llm import anthropic_api, gemini, opencode, openai_compat
 from app.llm.base import NotConfiguredError, RefusalError
 
@@ -104,7 +105,7 @@ def generate(provider: Optional[str], prompt: str, system: str = "", seg: int = 
 
     paid = configured_paid_chain()
     if not paid:
-        raise last if last else RuntimeError("OpenCode 免費模型全數失敗，且沒有任何付費供應商金鑰可備援。")
+        raise last if last else RuntimeError(messages.t("llm.all_free_failed"))
 
     for kind_p, model_p in paid:
         print(f"[LLM] OpenCode 接力鏈耗盡，自動備援到 {kind_p}/{model_p}…", flush=True)

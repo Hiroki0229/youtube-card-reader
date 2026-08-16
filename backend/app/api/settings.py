@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
-from app.core import config, languages
+from app.core import config, languages, messages
 from app.models.schemas import SettingsUpdate
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -47,14 +47,15 @@ def _public_state() -> dict:
         "obsidian_set": bool(vault),
         "obsidian_exists": bool(vault) and Path(vault).expanduser().exists(),
         "output_language": config.get("OUTPUT_LANGUAGE") or languages.DEFAULT,
+        "ui_language": config.get("UI_LANGUAGE") or "zh-Hant",
         "languages": languages.codes(),
     }
     for api_field, cfg_field in _KEY_FIELDS:
         name = api_field.removesuffix("_api_key")
         raw = config.get(cfg_field)
         state[f"{name}_set"] = bool(raw)
-        # 預覽字串不帶語言：多把 Gemini 金鑰的說法由前端依介面語言組（gemini_key_count）
-        state[f"{name}_preview"] = _mask(raw)
+        state[f"{name}_preview"] = (messages.t("settings.key_count", count=len(g_keys))
+                                    if name == "gemini" and len(g_keys) > 1 else _mask(raw))
     # 一把金鑰都沒有時顯示導引畫面（OpenCode 免費模型其實不需金鑰，但仍值得提示一次）
     state["configured"] = any(state[f"{f.removesuffix('_api_key')}_set"] for f, _ in _KEY_FIELDS)
     return state
@@ -80,8 +81,11 @@ def update_settings(req: SettingsUpdate) -> dict:
     if req.output_language is not None:
         # 不認得的語言代碼一律回退預設，避免前端送錯值就讓 prompt 壞掉
         updates["OUTPUT_LANGUAGE"] = languages.get(req.output_language).code
+    if req.ui_language is not None:
+        # 介面語言只有兩種；認不出來就當繁中，config 那層也會再擋一次
+        updates["UI_LANGUAGE"] = req.ui_language if req.ui_language in ("zh-Hant", "en") else "zh-Hant"
     try:
         config.save(updates)
     except RuntimeError as e:
-        raise HTTPException(500, str(e))
+        raise HTTPException(500, messages.t("settings.save_failed", error=e))
     return _public_state()

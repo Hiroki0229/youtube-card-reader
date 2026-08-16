@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from json_repair import repair_json
 
-from app.core import config
+from app.core import config, messages
 from app.core.zh import to_traditional
 from app.llm import router as llm_router
 from app.models.schemas import DeepDiveRequest, SummarizeRequest
@@ -23,23 +23,68 @@ router = APIRouter(tags=["summarize"])
 
 
 # 模型自己寫的中文欄位要正規化成繁體；transcript_highlight 是逐字引用，保留原文才忠實
-_ZH_FIELDS = ("heading", "summary", "visual", "translation")
+_ZH_FIELDS = ("heading", "summary", "visual", "translation", "action_hint")
+
+# 影片類型代碼。決定「下一步」走哪一條 track，前端據此換按鈕文案與 brief 模板
+CONTENT_TYPES = ("tutorial", "concept", "interview", "review", "news", "other")
+
+# 模型不一定聽話輸出英文代碼；中文說法映射回代碼，比直接退回 other 更保住資訊
+_CT_ALIASES = {
+    "教學操作": "tutorial", "教學": "tutorial", "操作": "tutorial", "howto": "tutorial",
+    "how-to": "tutorial", "教程": "tutorial",
+    "觀念分析": "concept", "觀念": "concept", "分析": "concept", "概念": "concept",
+    "訪談對談": "interview", "訪談": "interview", "對談": "interview", "podcast": "interview",
+    "評測比較": "review", "評測": "review", "比較": "review", "comparison": "review",
+    "新聞資訊": "news", "新聞": "news", "資訊": "news",
+}
+
+_TRUTHY = {"true", "yes", "1", "是", "真"}
+
+
+def _norm_content_type(value: Any) -> str:
+    """把模型輸出的類型正規化成固定代碼；認不出來一律 other（絕不讓它擋住解析）。"""
+    if not isinstance(value, str):
+        return "other"
+    v = value.strip()
+    if v.lower() in CONTENT_TYPES:
+        return v.lower()
+    return _CT_ALIASES.get(v, _CT_ALIASES.get(v.lower(), "other"))
+
+
+def _norm_bool(value: Any) -> bool:
+    """模型常把布林寫成字串（"true"／"是"）；一律收斂成真布林，認不出來當 False。"""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in _TRUTHY
+    return value == 1
+
+
+def _pick_content_type(values: list[str]) -> str:
+    """多段影片各段可能判成不同類型：取多數決（忽略 other），平手取最先出現的。"""
+    votes = [v for v in values if v and v != "other"]
+    if not votes:
+        return "other"
+    return max(dict.fromkeys(votes), key=lambda v: (votes.count(v), -votes.index(v)))
 
 
 def _parse_cards(raw: str, language: str) -> dict:
     """把模型輸出（可能包 markdown 代碼框、可能有小瑕疵）解析成卡片 JSON。
 
     輸出語言是繁體中文時順手做簡繁正規化（中國廠商的模型常無視 prompt 吐簡體）；
-    其他語言不套這層轉換。
+    其他語言不套這層轉換。content_type／actionable 是後加的欄位，模型漏填是常態，
+    一律走正規化補預設值，絕不因為缺欄位就讓整份摘要失敗。
     """
     raw = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     data = json.loads(repair_json(raw))
     if isinstance(data, dict):
         data["title"] = to_traditional(data.get("title"), language)
+        data["content_type"] = _norm_content_type(data.get("content_type"))
         for card in data.get("cards") or []:
             for field in _ZH_FIELDS:
                 if card.get(field):
                     card[field] = to_traditional(card[field], language)
+            card["actionable"] = _norm_bool(card.get("actionable"))
     return data
 
 
@@ -50,7 +95,7 @@ def _prepare(req: SummarizeRequest) -> Tuple[Content, list[str], bool]:
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(500, f"擷取失敗：{e}")
+        raise HTTPException(500, messages.t("summarize.fetch_failed", error=e))
 
     has_ts = content.get("has_timestamps") or content["type"] == "youtube"
     chunks = chunk_content(content["text"], bool(has_ts))
@@ -161,6 +206,7 @@ def summarize(req: SummarizeRequest) -> dict:
     all_cards: list[dict] = []
     title: str | None = None
     models_used: list[str] = []
+    content_types: list[str] = []
     failed = 0
 
     for i, chunk in enumerate(chunks):
@@ -175,15 +221,18 @@ def summarize(req: SummarizeRequest) -> dict:
         if title is None:
             title = data.get("title")
         all_cards.extend(data.get("cards", []))
+        content_types.append(data.get("content_type") or "other")
         if model_used and model_used not in models_used:
             models_used.append(model_used)
 
     if not all_cards:
-        raise HTTPException(500, "摘要失敗：所有片段都無法產生，請稍後再試或換模型。")
+        raise HTTPException(500, messages.t("summarize.all_segments_failed"))
 
-    return {"title": title or "未知標題", "source_type": content["type"],
+    return {"title": title or messages.t("summarize.untitled"),
+            "source_type": content["type"],
             "source_url": req.url, "youtube_video_id": content.get("video_id"),
             "transcript_source": content.get("transcript_source"),
+            "content_type": _pick_content_type(content_types),
             "cards": all_cards, "model_used": "、".join(models_used),
             "segments": len(chunks), "failed_segments": failed}
 
@@ -209,7 +258,8 @@ def summarize_stream(req: SummarizeRequest) -> StreamingResponse:
             yield line({"type": "fatal", "error": str(e)})
             return
         except Exception as e:  # noqa: BLE001
-            yield line({"type": "fatal", "error": f"擷取失敗：{e}"})
+            yield line({"type": "fatal",
+                        "error": messages.t("summarize.fetch_failed", error=e)})
             return
 
         multi = len(chunks) > 1
@@ -220,6 +270,7 @@ def summarize_stream(req: SummarizeRequest) -> StreamingResponse:
                     "segments": len(chunks), "workers": workers})
         title: str | None = None
         models_used: list[str] = []
+        content_types: list[str] = []   # 依段落順序 append（emit 是嚴格時間序），供多數決
         failed = total = 0
         status_events = [Queue() for _ in chunks]
         fatal_error: str | None = None
@@ -260,7 +311,11 @@ def summarize_stream(req: SummarizeRequest) -> StreamingResponse:
             total += len(cards)
             if model_used and model_used not in models_used:
                 models_used.append(model_used)
-            yield line({"type": "cards", "seg": i, "cards": cards, "model": model_used})
+            ctype = data.get("content_type") or "other"
+            content_types.append(ctype)
+            # 每段都帶：前端第一段就能顯示「下一步」入口，done 事件再用多數決校正
+            yield line({"type": "cards", "seg": i, "cards": cards, "model": model_used,
+                        "content_type": ctype})
 
         with ThreadPoolExecutor(max_workers=workers) as ex:
             # 第一段優先：不和後段搶免費 API；完成並送到前端後，才平行跑剩餘段落。
@@ -275,8 +330,9 @@ def summarize_stream(req: SummarizeRequest) -> StreamingResponse:
                 yield from wait_and_emit(i, f)
                 if fatal_error:
                     return
-        yield line({"type": "done", "title": title or "未知標題",
+        yield line({"type": "done", "title": title or messages.t("summarize.untitled"),
                     "model_used": "、".join(models_used), "segments": len(chunks),
+                    "content_type": _pick_content_type(content_types),
                     "failed_segments": failed, "total_cards": total})
 
     return StreamingResponse(gen(), media_type="application/x-ndjson")
@@ -295,4 +351,4 @@ def deepdive(req: DeepDiveRequest) -> dict:
     except RuntimeError as e:
         raise HTTPException(400, str(e))
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(500, f"深入解析失敗：{e}")
+        raise HTTPException(500, messages.t("summarize.deepdive_failed", error=e))

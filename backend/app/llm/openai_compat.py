@@ -9,7 +9,7 @@ from typing import Any, Callable, Tuple
 
 import httpx
 
-from app.core import config
+from app.core import config, messages
 from app.llm.base import (EmptyResponseError, NotConfiguredError,
                           ProviderError)
 from app.llm.util import with_retry
@@ -69,7 +69,7 @@ def is_configured(vendor: Vendor) -> bool:
 def _headers(vendor: Vendor) -> dict[str, str]:
     key = api_key(vendor)
     if not key:
-        raise NotConfiguredError(f"尚未設定 {vendor.label} API key，請點右上角「設定」填入。")
+        raise NotConfiguredError(messages.t("provider.no_key", vendor=vendor.label))
     return {"Content-Type": "application/json", "Authorization": f"Bearer {key}"}
 
 
@@ -112,19 +112,21 @@ def _post_chat(vendor: Vendor, model: str, messages: list[dict]) -> str:
             timeout=_CHAT_TIMEOUT,
         )
     except httpx.HTTPError as e:
-        raise ProviderError(f"{vendor.label} 連線失敗：{e}")
+        raise ProviderError(messages.t("provider.connect_failed", vendor=vendor.label, error=e))
 
     if resp.status_code >= 400:
-        raise ProviderError(f"{vendor.label} HTTP {resp.status_code}：{resp.text[:200]}")
+        raise ProviderError(messages.t("provider.http_error", vendor=vendor.label,
+                                       status=resp.status_code, detail=resp.text[:200]))
     try:
         data = resp.json()
     except Exception:
-        raise ProviderError(f"{vendor.label} 回應非 JSON：{resp.text[:200]}")
+        raise ProviderError(messages.t("provider.not_json", vendor=vendor.label,
+                                       detail=resp.text[:200]))
 
     if isinstance(data, dict) and data.get("error"):
         err = data["error"]
         msg = err.get("message") if isinstance(err, dict) else str(err)
-        raise ProviderError(f"{vendor.label} 錯誤：{msg}")
+        raise ProviderError(messages.t("provider.error", vendor=vendor.label, detail=msg))
 
     choices = (data or {}).get("choices") or []
     msg = (choices[0].get("message", {}) or {}) if choices else {}
@@ -134,7 +136,8 @@ def _post_chat(vendor: Vendor, model: str, messages: list[dict]) -> str:
         text = msg.get("reasoning_content") or ""
     if not text.strip():
         finish = choices[0].get("finish_reason") if choices else None
-        raise EmptyResponseError(f"{vendor.label} 回應內容為空（finish_reason={finish}）。")
+        raise EmptyResponseError(messages.t("provider.empty_response", vendor=vendor.label,
+                                            reason=f"finish_reason={finish}"))
     return text
 
 

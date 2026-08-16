@@ -6,9 +6,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-if hasattr(sys.stdout, "reconfigure"):     # Windows 主控台預設不是 UTF-8
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
 import app.api.summarize as summarize_api  # noqa: E402
 from app.models.schemas import SummarizeRequest  # noqa: E402
 

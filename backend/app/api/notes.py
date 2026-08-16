@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
-from app.core import config
+from app.core import config, messages
 from app.models.schemas import SaveNoteRequest
 
 router = APIRouter(prefix="/notes", tags=["notes"])
@@ -40,7 +40,7 @@ def _safe_relpath(rel: str) -> Path:
 def _safe_name(name: str) -> str:
     """新筆記檔名（不含副檔名）。"""
     name = re.sub(r'[\\/:*?"<>|]', "", name or "").strip()
-    return name[:120] or datetime.now().strftime("筆記 %Y-%m-%d %H%M")
+    return name[:120] or datetime.now().strftime(messages.t("notes.default_filename"))
 
 
 def _safe_filename(name: str) -> str:
@@ -57,7 +57,7 @@ def _ensure_within(root: Path, target: Path) -> Path:
     root_r = root.resolve()
     target_r = target.resolve()
     if target_r != root_r and root_r not in target_r.parents:
-        raise HTTPException(400, "非法路徑：超出 vault 範圍")
+        raise HTTPException(400, messages.t("notes.path_outside_vault"))
     return target_r
 
 
@@ -115,9 +115,9 @@ def files(folder: str = ""):
 def save(req: SaveNoteRequest):
     root = _vault_root()
     if root is None:
-        raise HTTPException(400, "尚未設定 OBSIDIAN_VAULT_PATH")
+        raise HTTPException(400, messages.t("notes.vault_not_set"))
     if not root.exists():
-        raise HTTPException(400, "vault 路徑不存在")
+        raise HTTPException(400, messages.t("notes.vault_missing"))
 
     folder_dir = root / _safe_relpath(req.folder)  # folder="" 代表 vault 根目錄
     _ensure_within(root, folder_dir)
@@ -126,7 +126,7 @@ def save(req: SaveNoteRequest):
         path = folder_dir / _safe_filename(req.target_file)
         _ensure_within(root, path)
         if not path.exists():
-            raise HTTPException(400, "目標筆記不存在，請重新選擇或改用新增")
+            raise HTTPException(400, messages.t("notes.target_missing"))
         with path.open("a", encoding="utf-8") as f:
             f.write("\n\n" + req.content.rstrip() + "\n")
         return {"ok": True, "saved_to": str(path), "mode": "append"}

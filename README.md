@@ -1,49 +1,241 @@
-# Youtube Card Reader
+# YouTube Card Reader
 
-Turn any YouTube video or web article into a deck of timestamped knowledge cards you can flip
-through, jump back into, ask questions about, and file away in Obsidian.
+> 看完，不只留下摘要。把教學真的做出來。
 
-![Youtube Card Reader demo](docs/images/demo.gif)
+[繁體中文](#它現在能做什麼) · [English](#english)
 
-*The full 25 second walkthrough, with sound: [docs/promo-en.mp4](docs/promo-en.mp4)*
+YouTube Card Reader 是一個在本機執行的開源閱讀工具。貼上 YouTube 影片或文章，它會整理成可以翻閱的知識卡；YouTube 卡片保留時間戳，點一下就能跳回原片段。
 
-Paste a link, press Start. The app fetches a transcript, splits the content into cards, and puts
-the video on the left and the cards on the right. Every card carries the timestamp it came from,
-so a card is never a dead summary: click the time and the video jumps to the exact moment.
+這次改版加入完整的「把它做出來」流程。程式會辨識內容類型，依影片素材建議下一步，再把整支影片交給你電腦上的 **Codex CLI** 或 **Claude Code**。最後會在本機產出實際檔案：可以跑的專案、一步一步的操作引導、教學頁，或練習題庫。
 
-It runs entirely on your machine. No account, no server of ours, no telemetry. It works with no
-API key at all, because the default text engine is a set of free models.
+![YouTube Card Reader 閱讀介面](docs/images/preview.png)
+
+## 它現在能做什麼
+
+### 從影片走到實作
+
+按下「把它做出來」後，可以選四種產出：
+
+- **可以跑的專案**：適合程式、AI 工具與建置教學。產出完整程式碼、README、設定步驟與驗收方式。
+- **一步一步的操作引導**：適合沒有程式碼的工具教學。產出可離線開啟的 `guide.html`，包含操作步驟、完成判準與常見卡關處理。
+- **一頁弄懂的教學**：把觀念、術語、難點與自我驗證題整理成 `study.html`。
+- **練習題庫**：依影片實際內容產出可互動、可記錄進度的 `drill.html`。
+
+教學影片會依內容自動建議「專案」或「操作引導」；觀念、訪談、評測與新聞預設走教學頁。判斷錯了也沒關係，執行前可以自己改。
+
+### 實作不是黑箱
+
+- 自動偵測本機的 Codex CLI 與 Claude Code，並列出可選模型。
+- 執行時顯示目前在規劃、查證或寫檔，以及已經產出幾個檔案；不使用假的百分比。
+- 做完後直接在 App 裡預覽 HTML、Markdown、文字與常見程式碼檔案，也可以打開完整產出資料夾。
+- 不想讓 agent 直接執行，可以選「只要給我指令」：App 會建立 `TASK.md`，再給一行可自行貼進終端機的命令。
+- 找不到 coding agent 時，不會只丟錯誤訊息；App 會提供安裝與登入引導。
+
+實作檔案預設放在：
+
+```text
+~/Documents/YCR 實作產出
+```
+
+### 原本的閱讀功能都還在
+
+- **知識卡，不是摘要牆**：每張卡片只講一件事，保留重點、原話、畫面資訊與時間戳。
+- **時間戳可直接跳轉**：點卡片時間就回到影片對應位置。
+- **讀得到畫面**：開啟「深視覺」後，Gemini 會讀取投影片、白板與畫面中的程式碼；若同時有字幕，語音時間軸仍以字幕為準。
+- **問整支影片**：聊天室已讀過完整逐字稿，可以追問內容，也能在有 Gemini 金鑰時搜尋影片外資料。
+- **深入解析單張卡片**：針對一個重點補背景與說明。
+- **存進 Obsidian**：收集要留下的卡片，再寫入指定 vault。
+- **影片與文章都能讀**：YouTube 走字幕／深視覺／本機 Whisper 瀑布；一般網頁文章直接抽取正文。
+- **雙語介面、六種輸出語言**：介面支援繁體中文與英文；卡片可輸出繁中、簡中、英文、日文、韓文與西班牙文。
+
+![卡片與問答面板](docs/images/cards.png)
+
+## 安裝與啟動
+
+需要 **Python 3.10+** 與 **Node.js 18+**。
+
+```bash
+git clone https://github.com/chang416/youtube-card-reader.git
+cd youtube-card-reader
+./scripts/start.sh
+```
+
+Windows：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start.ps1
+```
+
+也可以在 macOS 雙擊 `start.command`，或在 Windows 雙擊 `start.bat`。
+
+第一次啟動會自動建立 Python 虛擬環境並安裝前後端套件。完成後瀏覽器會開啟：
+
+```text
+http://127.0.0.1:15273
+```
+
+停止服務：
+
+```bash
+./scripts/stop.sh
+```
+
+## 使用實作功能
+
+### 建議：安裝一個本機 coding agent
+
+摘要與知識卡不需要 coding agent；只有「把它做出來」需要能讀寫檔案、執行指令與查證資料的工具。
+
+Codex CLI：
+
+```bash
+npm install -g @openai/codex
+```
+
+或使用 Homebrew：
+
+```bash
+brew install --cask codex
+```
+
+Claude Code：
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+安裝後依各工具的畫面完成登入，再重新打開「把它做出來」。App 會自動偵測，不需要手動填路徑。
+
+### 純 API 也能產出，但限制不同
+
+如果已設定 Gemini 或其他模型供應商，也可以直接產生檔案。這條路徑是單次生成，無法像本機 CLI 一樣上網查證、多輪修正或實際執行測試，因此 App 會：
+
+- 在開始前與交付時標示「未查證」。
+- 禁止模型憑印象提供網址；素材沒有的資訊會標成「需自行確認」。
+- 建議需要可靠連結、正確選單路徑或可執行專案時改用 Codex CLI／Claude Code。
+
+## 設定與資料
+
+所有金鑰都可以不填。有字幕的影片仍可使用免金鑰的 OpenCode Zen 免費模型整理。
+
+| 服務 | 用途 | 是否必要 |
+|---|---|---|
+| OpenCode Zen | 免金鑰摘要與模型選擇 | 否 |
+| Google Gemini | 深視覺、影片外搜尋、API 實作備援 | 否 |
+| OpenAI | 額外的摘要／問答模型 | 否 |
+| Anthropic | 額外的摘要／問答模型 | 否 |
+| DeepSeek | 額外的摘要／問答模型 | 否 |
+
+可以直接在右上角「設定」填寫，也可以複製 `.env.example` 為 `.env`。App 內設定會寫入專案根目錄的 `settings.json`；`.env`、`settings.json` 與 API keys 都在 `.gitignore` 內。
+
+這是一個 local-first 工具：介面、快取、筆記與實作檔案都留在你的電腦，專案本身沒有帳號系統、遙測或自有後端。使用外部模型時，送出的逐字稿、卡片或問題仍會依你選擇的供應商政策傳給該供應商。
+
+## 安全與誠實限制
+
+- 「貼上網址」只會整理內容，不會直接執行程式。實作前一定會讓使用者選擇產出類型與執行工具。
+- Codex CLI 以 `workspace-write` 執行，工作目錄限制在該次產出資料夾；預覽與「打開資料夾」端點也只接受產出根目錄底下的路徑。
+- Coding agent 仍可能執行指令或建立錯誤內容。若不希望自動執行，選「只要給我指令」，或把 `AUTO_RUN_CLI` 設為 `0`，先閱讀 `TASK.md` 再自行執行。
+- 「可以跑的專案」只適合真的包含程式碼、指令或可自動化步驟的教學。素材不足時，任務會要求 agent 誠實說明不適合，而不是硬做一個空殼。
+
+## 它怎麼運作
+
+### 內容整理
+
+```text
+YouTube／文章
+    ↓
+字幕 → 深視覺 → 本機 Whisper（依設定與可用性降級）
+    ↓
+分段整理、覆蓋率檢查、知識卡
+    ↓
+辨識內容類型與可行動卡片
+```
+
+預設優先使用字幕，因為快、免費、時間準。開啟深視覺時，Gemini 會優先讀影片畫面；若字幕存在，口說內容與時間軸仍以字幕為準，畫面筆記再按時間合併。
+
+### 從知識卡到實體檔案
+
+```text
+整支影片的全部卡片
+    ↓
+選擇 project／SOP／study／drill
+    ↓
+建立 TASK.md 與獨立產出資料夾
+    ↓
+Codex CLI／Claude Code 執行，或純 API 單次產生
+    ↓
+串流進度、檔案清單、App 內預覽
+```
+
+實作使用整支影片的全部卡片，不會只拿目前畫面上的一張卡片斷章取義。
+
+## 專案結構
+
+```text
+backend/app/
+  agents/       Codex CLI／Claude Code 偵測、模型選擇與執行
+  api/          summarize、ask、implement、models、notes、settings
+  core/         設定、雙語訊息、語言與繁簡正規化
+  llm/          Gemini、OpenCode、OpenAI、DeepSeek、Anthropic 與路由備援
+  prompts/      卡片整理、問答、四種實作任務與 HTML 設計規則
+  transcript/   字幕、深視覺、本機 Whisper、快取與轉錄瀑布
+frontend/src/
+  components/   閱讀、問答、設定、實作進度與產出預覽
+  hooks/        卡片、模型、設定、串流摘要與實作狀態
+  i18n/         繁體中文／英文介面
+```
+
+## 測試
+
+測試不會呼叫真實模型，也不需要 API key。
+
+```bash
+cd backend
+PYTHONPATH=. .venv/bin/python tests/test_deepsrt.py
+PYTHONPATH=. .venv/bin/python tests/test_progress_stream.py
+PYTHONPATH=. .venv/bin/python tests/test_providers.py
+PYTHONPATH=. .venv/bin/python tests/test_content_type.py
+PYTHONPATH=. .venv/bin/python tests/test_implement.py
+PYTHONPATH=. .venv/bin/python tests/test_messages.py
+```
+
+前端：
+
+```bash
+cd frontend
+npm ci
+npm run build
+```
 
 ---
 
-## Features
+## English
 
-- **Cards, not a wall of summary.** Each card is one idea: a heading, three bullet points, the
-  verbatim line from the transcript it came from, and what was on screen at that moment.
-- **Timestamps that actually land.** Click the time on a card to jump the player there. See
-  [How it works](#how-it-works) for why this is harder than it sounds and what the app does about it.
-- **Reads the screen, not just the audio.** Turn on "Read screen" and the model watches the video
-  itself, so slides, whiteboards, and on-screen code end up in the cards even though nobody read
-  them out loud.
-- **Ask the video.** A chat panel that has already read the whole transcript, so you can ask
-  follow-up questions about anything that was said.
-- **Go deeper on one card.** "Deep dive" re-runs a single card with a longer explanation.
-- **Save to Obsidian.** Collect the cards you care about and write them into your vault as one
-  Markdown note.
-- **Five engines.** Gemini, Claude, GPT, DeepSeek, and OpenCode Zen free models, switchable from a
-  dropdown, plus an auto mode with fallback.
-- **Bilingual interface, six output languages.** The UI reads in English or Traditional Chinese;
-  the cards can be written in any of six languages. The two settings are independent.
+YouTube Card Reader is a local-first, open-source reader that turns YouTube videos and web articles into navigable knowledge cards. YouTube cards keep their timestamps, so every idea links back to the exact moment it came from.
 
-![Youtube Card Reader](docs/images/preview.png)
+The new release adds an end-to-end **Implement** workflow. After the cards are ready, the app classifies the content, suggests a useful next step, and can hand the full video to a local **Codex CLI** or **Claude Code** installation. The result is a folder of real files rather than another summary.
 
-![Cards and the ask panel](docs/images/cards.png)
+### Four output tracks
 
----
+- **Build**: a runnable project or agent-ready instruction package for technical tutorials.
+- **SOP**: a verified, step-by-step `guide.html` for tool tutorials.
+- **Study**: a self-contained `study.html` with terminology, missing background, and comprehension checks.
+- **Drill**: an interactive `drill.html` generated only from the source material.
 
-## Quick start
+The app detects installed coding agents and their available models, streams real phases and file creation, previews common output formats in-app, and supports a manual mode that writes `TASK.md` without running the agent automatically.
 
-Requires **Python 3.10+** and **Node.js 18+**. Nothing else.
+### Existing reader features
+
+- Timestamped idea cards with transcript quotes and on-screen notes.
+- Deep visual transcription for slides, whiteboards, and code shown on screen.
+- Full-video Q&A, per-card deep dives, and Obsidian export.
+- YouTube and web article input.
+- English and Traditional Chinese UI with six output languages.
+- Free, keyless summarization through OpenCode Zen when captions are available.
+
+### Quick start
+
+Requires Python 3.10+ and Node.js 18+.
 
 ```bash
 git clone https://github.com/chang416/youtube-card-reader.git
@@ -57,173 +249,13 @@ On Windows:
 powershell -ExecutionPolicy Bypass -File scripts\start.ps1
 ```
 
-Or just double-click `start.command` (macOS) or `start.bat` (Windows).
+For the Implement workflow, install and sign in to Codex CLI or Claude Code. API-only generation is available when a provider is configured, but it cannot browse or verify external facts; the app labels those outputs as unverified.
 
-The first run creates a Python virtual environment and installs packages, which takes a few
-minutes. After that it starts in a couple of seconds. When it is up, the browser opens at
-`http://127.0.0.1:15273`.
-
-To stop it: `./scripts/stop.sh`, or close the two terminal windows on Windows.
-
----
-
-## Configuration
-
-Every key is optional. With an empty configuration the app still summarizes videos that have
-subtitles, using the free OpenCode Zen models.
-
-![Settings](docs/images/settings.png)
-
-There are two places to put configuration, and they are read in this order:
-
-1. **The Settings dialog in the app** (the gear icon). Writes `settings.json` next to the backend.
-   Takes effect immediately, no restart.
-2. **A `.env` file** in the project root. Copy `.env.example` and fill in what you want.
-
-Both files are in `.gitignore`.
-
-### Supported engines
-
-| Engine | Default model | Free? | Key from |
-|---|---|---|---|
-| OpenCode Zen | `deepseek-v4-flash-free` | Yes, no key needed | https://opencode.ai/zen |
-| Google Gemini | `gemini-3.5-flash-lite` | Free tier | https://aistudio.google.com/apikey |
-| Anthropic Claude | `claude-opus-5` | No | https://console.anthropic.com/settings/keys |
-| OpenAI | `gpt-5.1` | No | https://platform.openai.com/api-keys |
-| DeepSeek | `deepseek-chat` | No | https://platform.deepseek.com/api_keys |
-
-Notes:
-
-- **Gemini is the one key that unlocks a feature rather than just a model.** "Read screen" and
-  web search in the ask panel both need it. Everything else works without it.
-- **Multiple Gemini keys are supported.** Put one per line, or comma-separated. Their free-tier
-  quotas add up, and long videos are split across them in parallel.
-- **The model dropdown lists what you actually have.** When a key is present the app asks that
-  provider for its real model list; otherwise it shows a small built-in list.
-- **Auto mode** runs the free chain first, then falls back to whichever paid providers you have
-  configured, in the order Gemini, DeepSeek, OpenAI, Anthropic.
-
-### Obsidian
-
-Set `OBSIDIAN_VAULT_PATH` to your vault and `OBSIDIAN_NOTES_FOLDER` to the folder inside it.
-Leave the path empty to hide the save button.
-
----
-
-## How it works
-
-Getting a transcript is a waterfall. Each layer falls through to the next one if it fails.
-
-![Transcript waterfall](docs/images/how-it-works.svg)
-
-**Default:** subtitles first, because they are instant, free, and exact. If the video has none,
-the model watches the video. If there is no Gemini key either, Whisper runs locally on your CPU:
-slow, but free and unlimited.
-
-**Read screen mode** flips the first two: the model watches the video even when subtitles exist,
-because you want what was on the slides, not just what was said.
-
-### Why "read screen" mode also fetches the subtitles
-
-This is the part worth knowing about, and it is why the badge above the cards says
-"Deep visual + captions" rather than just "Deep visual".
-
-When a model watches a video, the timestamps it reports for what it sees on screen are accurate,
-but the timestamps it reports for speech drift. Measured against the official subtitles of a
-5-minute TED-Ed video:
-
-| Reported | Actual | Error |
-|---|---|---|
-| 0:17 | 0:18 | -1s |
-| 1:11 | 1:01 | +10s |
-| 2:26 | 1:50 | +36s |
-| 3:22 | 2:25 | +57s |
-| 4:54 | 3:16 | +98s |
-
-The drift is monotonic: perfect at the start, a minute and a half off at the end. Worse, the
-model had transcribed only the first 196 seconds of a 283-second video and then stretched that
-content to fill the runtime, so the last 90 seconds were missing entirely.
-
-The on-screen notes from the same response, meanwhile, were within 3 seconds of the truth.
-
-So the app takes the accurate half of each source. When subtitles exist, the spoken transcript
-and its timeline come from the subtitles; the on-screen notes come from the model and are merged
-into the correct positions by time. After the fix, the transcript matches the official subtitles
-line for line, runs to the true 283 seconds, and all 20 on-screen notes survive.
-
-### Prompt language
-
-The prompt is written in Traditional Chinese and stays that way in every language. This is
-deliberate, not an oversight. The extraction criteria in it were tuned against real output, and
-translating them means re-tuning quality from scratch. Instead, output language is a hard
-directive pinned to the top of the prompt: read the instructions in one language, answer in
-another. Adding a language is one row in `backend/app/core/languages.py`.
-
-Available output languages: Traditional Chinese, Simplified Chinese, English, Japanese, Korean,
-Spanish.
-
-**Interface language and output language are separate settings.** Switching the UI to English does
-not make the cards English, and vice versa.
-
----
-
-## Ports
-
-Backend `8420`, frontend `15273`. Deliberately uncommon, so the app does not collide with whatever
-else is running on `8000` or `5173`.
-
-To change them:
-
-```bash
-YCR_BACKEND_PORT=9000 YCR_FRONTEND_PORT=9001 ./scripts/start.sh
-```
-
-The frontend finds the backend through `VITE_API_BASE`, which the start scripts set for you.
-
----
-
-## Project layout
-
-```
-backend/app/
-  api/          summarize (streaming), ask, models, notes, settings
-  llm/          gemini, opencode, openai_compat (OpenAI + DeepSeek),
-                anthropic_api, router (routing and fallback)
-  transcript/   captions, deepsrt, whisper_local, router (the waterfall), cache
-  prompts/      summarize (extraction criteria), ask
-  core/         config (layered settings), languages, zh (script normalization)
-frontend/src/
-  components/   CardDeck, VideoPane, NotesPanel, AskPanel, FloatingPanel,
-                Splitter, SettingsModal, BrandMark, MarkdownText
-  hooks/        useSummarizeStream, useCards, useModels, useNotesVault, useSettings
-  i18n/         strings (en / zh), provider
-scripts/        start.sh, stop.sh, start.ps1
-```
-
-Python changes need a backend restart. The frontend hot-reloads.
-
----
-
-## Testing
-
-Three test files, none of which touch the network or need a key. External calls are injected fakes.
-
-```bash
-cd backend
-PYTHONPATH=. .venv/bin/python tests/test_deepsrt.py
-PYTHONPATH=. .venv/bin/python tests/test_progress_stream.py
-PYTHONPATH=. .venv/bin/python tests/test_providers.py
-```
-
-On Windows, use `.venv\Scripts\python.exe`. They are also pytest-compatible, and CI runs them on
-every push along with a frontend build.
-
----
+The UI, cache, notes, and generated files stay on your computer. The project has no account system, telemetry, or hosted backend. When you select an external model, submitted content is still handled under that provider's policies.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add an engine, a UI language, or an output
-language. Issues and pull requests are welcome.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and pull requests are welcome, especially around new content types, output tracks, languages, providers, and regression cases.
 
 ## License
 
@@ -231,6 +263,4 @@ MIT. See [LICENSE](LICENSE).
 
 ## Acknowledgements
 
-Built on top of lootube, the Chinese-only predecessor this project grew out of. Transcripts come
-from `youtube-transcript-api`, local transcription from `faster-whisper`, and the free model chain
-from OpenCode Zen.
+Built on top of lootube, the Chinese-only predecessor this project grew out of. Transcripts come from `youtube-transcript-api`, local transcription from `faster-whisper`, and the free model chain from OpenCode Zen.

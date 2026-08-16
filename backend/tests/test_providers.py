@@ -7,14 +7,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-if hasattr(sys.stdout, "reconfigure"):              # Windows 主控台預設不是 UTF-8
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
 from app.core import languages                      # noqa: E402
 from app.core.zh import to_traditional              # noqa: E402
 from app.llm import anthropic_api, openai_compat    # noqa: E402
 from app.llm import router as llm_router            # noqa: E402
 from app.prompts.ask import ask_system              # noqa: E402
+from app.llm import gemini  # noqa: E402
 from app.prompts.summarize import (deepdive_system, summarize_prompt,  # noqa: E402
                                    summarize_system)
 
@@ -26,7 +24,8 @@ def test_parse_every_provider():
         "openai:gpt-5.1": ("openai", "gpt-5.1"),
         "deepseek:deepseek-reasoner": ("deepseek", "deepseek-reasoner"),
         "opencode:mimo-v2.5-free": ("opencode", "mimo-v2.5-free"),
-        "gemini": ("gemini", "gemini-3.5-flash-lite"),
+        # 對照常數而不是抄一份字串：模型換版時測試不該跟著壞，但兩邊不一致要被抓到
+        "gemini": ("gemini", gemini.MODEL),
         "auto": ("auto", llm_router.DEFAULT_AUTO_MODEL),
         "": ("auto", llm_router.DEFAULT_AUTO_MODEL),
         None: ("auto", llm_router.DEFAULT_AUTO_MODEL),

@@ -1,7 +1,7 @@
 """GET /models：給前端下拉選單用的供應商×模型清單。"""
 from fastapi import APIRouter
 
-from app.core import languages
+from app.core import languages, messages
 from app.llm import anthropic_api, gemini, opencode, openai_compat
 
 router = APIRouter(tags=["models"])
@@ -28,7 +28,7 @@ def list_models() -> dict:
         "source": free_source,
         "default": f"opencode:{opencode.DEFAULT_FREE_MODEL}",
         "providers": {
-            "opencode": {"label": "OpenCode（免費 / Free）", "models": free,
+            "opencode": {"label": messages.t("provider.opencode_label"), "models": free,
                          "source": free_source, "configured": True, "free": True},
             "gemini": {"label": "Google Gemini", "models": [gemini.MODEL],
                        "source": "static", "configured": gemini.key_count() > 0, "free": False},

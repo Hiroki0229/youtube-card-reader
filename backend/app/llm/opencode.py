@@ -7,7 +7,7 @@ from typing import Any, Callable, Tuple
 
 import httpx
 
-from app.core import config
+from app.core import config, messages
 from app.llm.base import EmptyResponseError, ProviderError
 from app.llm.util import with_retry
 
@@ -94,19 +94,21 @@ def _post_chat(model: str, messages: list[dict]) -> str:
             timeout=_CHAT_TIMEOUT,
         )
     except httpx.HTTPError as e:
-        raise ProviderError(f"OpenCode 連線失敗：{e}")
+        raise ProviderError(messages.t("provider.connect_failed", vendor="OpenCode", error=e))
 
     if resp.status_code >= 400:
-        raise ProviderError(f"OpenCode HTTP {resp.status_code}：{resp.text[:200]}")
+        raise ProviderError(messages.t("provider.http_error", vendor="OpenCode",
+                                       status=resp.status_code, detail=resp.text[:200]))
     try:
         data = resp.json()
     except Exception:
-        raise ProviderError(f"OpenCode 回應非 JSON：{resp.text[:200]}")
+        raise ProviderError(messages.t("provider.not_json", vendor="OpenCode",
+                                       detail=resp.text[:200]))
 
     if isinstance(data, dict) and data.get("error"):
         err = data["error"]
         msg = err.get("message") if isinstance(err, dict) else str(err)
-        raise ProviderError(f"OpenCode 錯誤：{msg}")
+        raise ProviderError(messages.t("provider.error", vendor="OpenCode", detail=msg))
 
     choices = (data or {}).get("choices") or []
     msg = (choices[0].get("message", {}) or {}) if choices else {}
@@ -116,7 +118,8 @@ def _post_chat(model: str, messages: list[dict]) -> str:
         text = msg.get("reasoning_content") or ""
     if not text.strip():
         finish = choices[0].get("finish_reason") if choices else None
-        raise EmptyResponseError(f"OpenCode 回應內容為空（finish_reason={finish}）。")
+        raise EmptyResponseError(messages.t("provider.empty_response", vendor="OpenCode",
+                                            reason=f"finish_reason={finish}"))
     return text
 
 

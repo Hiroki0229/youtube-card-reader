@@ -6,10 +6,12 @@ import NotesPanel from './components/NotesPanel.jsx'
 import AskPanel from './components/AskPanel.jsx'
 import FloatingPanel from './components/FloatingPanel.jsx'
 import SettingsModal from './components/SettingsModal.jsx'
+import ImplementModal from './components/ImplementModal.jsx'
 import BrandMark from './components/BrandMark.jsx'
 import useModels, { PROVIDER_ORDER, providerValue } from './hooks/useModels.js'
 import useSettings from './hooks/useSettings.js'
 import useSummarizeStream from './hooks/useSummarizeStream.js'
+import useImplement from './hooks/useImplement.js'
 import useCards from './hooks/useCards.js'
 import useNotesVault from './hooks/useNotesVault.js'
 import { useI18n } from './i18n/index.jsx'
@@ -90,6 +92,7 @@ export default function App() {
   const { result } = stream
   const cardsHook = useCards(result, provider, { index: SAVED.index, deepdives: SAVED.deepdives, clips: SAVED.clips })
   const notes = useNotesVault(SAVED.saveOpts)
+  const implement = useImplement({ result, provider, t })
 
   // 摘要標題一到就當作預設檔名
   useEffect(()=>{ if(result?.title) setFilename(f=>f||result.title) },[result?.title])
@@ -181,7 +184,7 @@ export default function App() {
       <main className="workspace" ref={workspaceRef}>
         {stream.loading?<div className="loading-space" aria-hidden="true"/>
         :!result?<div className="empty-state"><span className="empty-logo"><BrandMark/><strong>{t('app.name')}</strong></span><p className="empty-tagline">{t('app.tagline')}</p></div>
-        :<>{hasVideo&&<VideoPane videoId={result.youtube_video_id} startAt={cardsHook.startAt} cards={cards} activeIndex={cardsHook.index} onJump={i=>cardsHook.jumpToCard(i,true)}/>}{hasVideo&&<Splitter onCommit={setSplit}/>}<CardDeck result={result} index={cardsHook.index} setIndex={cardsHook.setIndex} clippedIds={cardsHook.clippedIds} onClip={clipCard} onJumpVideo={i=>cardsHook.jumpToCard(i,true)} deepdives={cardsHook.deepdives} onDeepDive={onDeepDive} deepdiveLoading={cardsHook.ddLoading} fullWidth={!hasVideo}/></>}
+        :<>{hasVideo&&<VideoPane videoId={result.youtube_video_id} startAt={cardsHook.startAt} cards={cards} activeIndex={cardsHook.index} onJump={i=>cardsHook.jumpToCard(i,true)}/>}{hasVideo&&<Splitter onCommit={setSplit}/>}<CardDeck result={result} index={cardsHook.index} setIndex={cardsHook.setIndex} clippedIds={cardsHook.clippedIds} onClip={clipCard} onJumpVideo={i=>cardsHook.jumpToCard(i,true)} deepdives={cardsHook.deepdives} onDeepDive={onDeepDive} deepdiveLoading={cardsHook.ddLoading} onImplement={implement.start} fullWidth={!hasVideo}/></>}
       </main>
       {/* 筆記／問模型：可最小化浮窗，不佔用主版面，展開/收合狀態記在 localStorage */}
       {result&&<>
@@ -192,6 +195,7 @@ export default function App() {
           <AskPanel videoId={result?.youtube_video_id||null}/>
         </FloatingPanel>
       </>}
+      {implement.open&&<ImplementModal state={implement} providers={providers} onClose={implement.close} onToast={showToast}/>}
       {toast&&<div className={`toast ${toast.isErr?'err':''}`}>{toast.msg}</div>}
       {(needsSetup||showSettings)&&<SettingsModal state={settings} mandatory={needsSetup} onClose={()=>setShowSettings(false)} onSaved={handleSettingsSaved}/>}
     </>

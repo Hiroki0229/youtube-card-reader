@@ -14,7 +14,7 @@ const ENGINES = [
 // state: 後端 /settings 回傳的公開狀態
 // mandatory: 首次啟動（尚未設定任何金鑰）→ 不可關閉，作為導引畫面
 export default function SettingsModal({ state, mandatory, onClose, onSaved }) {
-  const { t } = useI18n()
+  const { t, lang, setLang, langs } = useI18n()
   const [keys, setKeys] = useState({})   // 只放使用者「這次有輸入」的金鑰
   const [vault, setVault] = useState(state?.obsidian_vault_path || '')
   const [folder, setFolder] = useState(state?.obsidian_notes_folder || 'Youtube Card Reader')
@@ -59,6 +59,16 @@ export default function SettingsModal({ state, mandatory, onClose, onSaved }) {
         </div>
 
         <div className="settings-body">
+          {/* 介面語言擺第一個：外國使用者打開設定，第一件想做的事就是把介面換成看得懂的 */}
+          <div className="settings-divider"><span>{t('settings.interface')}</span></div>
+          <label className="settings-field">
+            <span className="settings-label">{t('settings.uiLanguage')}</span>
+            <select value={lang} onChange={e => setLang(e.target.value)}>
+              {langs.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+            </select>
+            <span className="settings-hint">{t('settings.uiLanguageHint')}</span>
+          </label>
+
           <div className="settings-divider"><span>{t('settings.output')}</span></div>
           <label className="settings-field">
             <span className="settings-label">{t('settings.outputLanguage')}</span>
@@ -71,13 +81,8 @@ export default function SettingsModal({ state, mandatory, onClose, onSaved }) {
           <div className="settings-divider"><span>{t('settings.engines')}</span></div>
           {ENGINES.map(({ name, field, multiline }) => {
             const already = !!state?.[`${name}_set`]
-            const keyCount = state?.gemini_key_count || 0
-            // 多把 Gemini 金鑰時顯示把數，其餘顯示遮罩過的金鑰預覽
-            const preview = name === 'gemini' && keyCount > 1
-              ? t('settings.keyCount', keyCount)
-              : state[`${name}_preview`]
             const placeholder = already
-              ? t('settings.keySet', preview)
+              ? t('settings.keySet', state[`${name}_preview`])
               : t(name === 'gemini' ? 'settings.geminiPlaceholder'
                   : name === 'opencode' ? 'settings.opencodePlaceholder'
                   : 'settings.keyPlaceholder')

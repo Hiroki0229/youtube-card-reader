@@ -1,4 +1,11 @@
-"""Gemini 供應商：唯一模型 gemini-3.5-flash-lite，支援多把金鑰輪替。
+"""Gemini 供應商：兩個模型分工，支援多把金鑰輪替。
+
+- MODEL（flash-lite）：卡片摘要、影片轉錄、問答。量大、要便宜。
+- MODEL_HEAVY（flash）：實作產出。要一次寫出幾萬字的 HTML，值得用大一級的模型。
+
+用 `-latest` 別名而不是寫死版本號，新模型出來不必改程式碼。代價是官方明說別名可能
+指到 preview 版、且配額與功能會隨指向變動（更新前兩週會發信通知）。要完全穩定的人
+可以在設定裡填明確版本字串。
 
 除了一般文字生成，另提供 generate_video()：把公開 YouTube 網址直接當影片輸入
 （file_data.file_uri），供 DeepSRT 轉錄路徑使用。
@@ -10,11 +17,12 @@ from typing import Any, Callable, Optional, Tuple
 from google import genai
 from google.genai import types
 
-from app.core import config
+from app.core import config, messages
 from app.llm.base import KeyExhaustedError, NotConfiguredError
 from app.llm.util import is_transient
 
-MODEL = "gemini-3.5-flash-lite"
+MODEL = "gemini-flash-lite-latest"          # 卡片、轉錄、問答
+MODEL_HEAVY = "gemini-flash-latest"         # 實作產出
 LABEL = MODEL
 
 # 影片攝取很慢，給足逾時（毫秒）
@@ -60,7 +68,7 @@ def _is_auth_error(e: Exception) -> bool:
 def _require_keys() -> list[str]:
     keys = _keys()
     if not keys:
-        raise NotConfiguredError("尚未設定 Gemini API key，請點右上角「設定」填入。")
+        raise NotConfiguredError(messages.t("provider.no_key", vendor="Gemini"))
     return keys
 
 
@@ -114,15 +122,24 @@ def _over_keys(run, *, seg: int, label: str, tries: int,
 
 
 def generate(prompt: str, system: str = "", seg: int = 0,
-             on_status: Callable[[dict[str, Any]], None] | None = None) -> Tuple[str, str]:
-    """文字生成。回傳 (文字, 模型標籤)。seg 用來讓不同段落錯開使用不同金鑰。"""
+             on_status: Callable[[dict[str, Any]], None] | None = None,
+             model: str | None = None, max_output_tokens: int | None = None) -> Tuple[str, str]:
+    """文字生成。回傳 (文字, 模型標籤)。seg 用來讓不同段落錯開使用不同金鑰。
+
+    model 省略時用 flash-lite；實作路徑會傳 MODEL_HEAVY。
+    max_output_tokens 供實作使用——一份教學 HTML 約 15-20k tokens，預設值會被截斷。
+    """
+    use = model or MODEL
     full = f"{system}\n\n{prompt}" if system else prompt
+    cfg = types.GenerateContentConfig(max_output_tokens=max_output_tokens) \
+        if max_output_tokens else None
 
     def run(key: str) -> str:
-        return _client(key).models.generate_content(model=MODEL, contents=full).text
+        return _client(key).models.generate_content(
+            model=use, contents=full, config=cfg).text
 
-    return _over_keys(run, seg=seg, label=f"Gemini/{MODEL}", tries=3,
-                      on_status=on_status), LABEL
+    return _over_keys(run, seg=seg, label=f"Gemini/{use}", tries=3,
+                      on_status=on_status), use
 
 
 def generate_chat(messages: list[dict], system: str = "", seg: int = 0,
@@ -158,7 +175,7 @@ def generate_chat(messages: list[dict], system: str = "", seg: int = 0,
         search = False  # 搜尋工具額度冷卻中，直接走純對話省時間
     if search:
         try:
-            return run_with(True), f"{LABEL}＋搜尋"
+            return run_with(True), LABEL + messages.t("gemini.search_suffix")
         except Exception as e:  # noqa: BLE001
             if is_quota_error(e):
                 _search_down_until = time.time() + _SEARCH_COOLDOWN_S
@@ -213,4 +230,4 @@ def generate_video(youtube_url: str, directive: str, *,
                 time.sleep(1.5)
                 continue
             raise
-    raise KeyExhaustedError("Gemini 影片呼叫失敗")
+    raise KeyExhaustedError(messages.t("gemini.video_failed"))

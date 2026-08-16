@@ -3,7 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
-from app.core import config
+from app.core import config, messages
 from app.core.zh import to_traditional
 from app.llm import anthropic_api, gemini, opencode, openai_compat
 from app.llm import router as llm_router
@@ -52,7 +52,7 @@ def ask(req: AskRequest) -> dict:
     """
     transcript = _load_transcript(req.video_id)
     if not transcript:
-        raise HTTPException(400, "找不到這支影片的逐字稿。請先整理影片，再來問問題。")
+        raise HTTPException(400, messages.t("ask.no_transcript"))
     if len(transcript) > _MAX_TRANSCRIPT_CHARS:
         transcript = transcript[:_MAX_TRANSCRIPT_CHARS] + "\n（逐字稿過長，以上為截斷後的前段）"
 
@@ -67,13 +67,15 @@ def ask(req: AskRequest) -> dict:
     if use_gemini:
         try:
             text, label = gemini.generate_chat(messages, ask_system(transcript, True, language))
+            # 有掛搜尋工具時 generate_chat 會在標籤後加後綴；後綴文字隨介面語言變，
+            # 所以比對「標籤有沒有被加料」而不是比對某個語言的字面值
             return {"answer": to_traditional(text, language), "model_used": label,
-                    "searched": "搜尋" in label}
+                    "searched": label != gemini.LABEL}
         except NotConfiguredError as e:
             raise HTTPException(400, str(e))
         except Exception as e:  # noqa: BLE001
             if kind == llm_router.GEMINI:
-                raise HTTPException(500, f"問模型失敗：{e}")
+                raise HTTPException(500, messages.t("ask.failed", error=e))
             print(f"[ask] Gemini 失敗，改試其他供應商：{e}", flush=True)
 
     system = ask_system(transcript, False, language)
@@ -95,4 +97,4 @@ def ask(req: AskRequest) -> dict:
         except Exception as e:  # noqa: BLE001
             last = e
             print(f"[ask] {k}/{m} 失敗，換下一個…：{e}", flush=True)
-    raise HTTPException(500, f"問模型失敗：{last}")
+    raise HTTPException(500, messages.t("ask.failed", error=last))

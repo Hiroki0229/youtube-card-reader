@@ -30,10 +30,15 @@ _FIELDS: tuple[str, ...] = (
     "OUTPUT_LANGUAGE",
     "OBSIDIAN_VAULT_PATH",
     "OBSIDIAN_NOTES_FOLDER",
+    "OUTPUT_DIR",
+    "AUTO_RUN_CLI",
+    "UI_LANGUAGE",
 )
 
 _DEFAULT_FOLDER = "Youtube Card Reader"
 _DEFAULT_LANGUAGE = "zh-Hant"
+# 實作產出的落腳處。預設放家目錄下，不寫進專案目錄（產出是使用者的東西，不是專案的）
+_DEFAULT_OUTPUT_DIR = str(Path.home() / "Documents" / "YCR 實作產出")
 
 
 def _defaults() -> dict[str, str]:
@@ -47,6 +52,12 @@ def _defaults() -> dict[str, str]:
         "OUTPUT_LANGUAGE": os.getenv("OUTPUT_LANGUAGE", _DEFAULT_LANGUAGE).strip() or _DEFAULT_LANGUAGE,
         "OBSIDIAN_VAULT_PATH": os.getenv("OBSIDIAN_VAULT_PATH", "").strip().strip('"'),
         "OBSIDIAN_NOTES_FOLDER": os.getenv("OBSIDIAN_NOTES_FOLDER", _DEFAULT_FOLDER).strip() or _DEFAULT_FOLDER,
+        "OUTPUT_DIR": os.getenv("OUTPUT_DIR", _DEFAULT_OUTPUT_DIR).strip().strip('"') or _DEFAULT_OUTPUT_DIR,
+        # "1"／"0"：偵測到 CLI 時要不要直接跑。關掉就只產任務包讓使用者自己貼進終端機
+        "AUTO_RUN_CLI": os.getenv("AUTO_RUN_CLI", "1").strip() or "1",
+        # 介面語言（zh-Hant／en）。與 OUTPUT_LANGUAGE 分開：介面是誰在用，輸出是要寫成什麼語言。
+        # 後端回給前端的錯誤訊息也跟著這個走，否則外國使用者會看到中文錯誤。
+        "UI_LANGUAGE": os.getenv("UI_LANGUAGE", "zh-Hant").strip() or "zh-Hant",
     }
 
 
@@ -72,6 +83,10 @@ def _load() -> dict[str, str]:
         data["OBSIDIAN_NOTES_FOLDER"] = _DEFAULT_FOLDER
     if not data.get("OUTPUT_LANGUAGE"):
         data["OUTPUT_LANGUAGE"] = _DEFAULT_LANGUAGE
+    if not data.get("OUTPUT_DIR"):
+        data["OUTPUT_DIR"] = _DEFAULT_OUTPUT_DIR
+    if data.get("UI_LANGUAGE") not in ("zh-Hant", "en"):
+        data["UI_LANGUAGE"] = "zh-Hant"
     return data
 
 
@@ -100,13 +115,19 @@ def save(updates: dict) -> dict[str, str]:
         _cache["OBSIDIAN_NOTES_FOLDER"] = _DEFAULT_FOLDER
     if not _cache.get("OUTPUT_LANGUAGE"):
         _cache["OUTPUT_LANGUAGE"] = _DEFAULT_LANGUAGE
+    if not _cache.get("OUTPUT_DIR"):
+        _cache["OUTPUT_DIR"] = _DEFAULT_OUTPUT_DIR
+    if _cache.get("UI_LANGUAGE") not in ("zh-Hant", "en"):
+        _cache["UI_LANGUAGE"] = "zh-Hant"
 
     merged = _read_settings_file()
     merged.update(_cache)
     try:
         _SETTINGS_PATH.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception as e:
-        raise RuntimeError(f"無法寫入設定檔：{e}")
+        # 只帶原始錯誤；給使用者看的句子由 API 層依介面語言組裝。
+        # config 不得反向匯入 messages（messages 要靠 config 讀 UI_LANGUAGE），否則循環匯入。
+        raise RuntimeError(str(e))
     return dict(_cache)
 
 

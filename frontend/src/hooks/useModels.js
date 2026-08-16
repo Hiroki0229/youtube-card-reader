@@ -5,7 +5,7 @@ import * as api from '../api.js'
 // free: 不需金鑰就能用；configured: 是否已填金鑰（離線時無從得知，一律當 false）。
 export const STATIC_PROVIDERS = {
   opencode: {
-    label: 'OpenCode（免費 / Free）', free: true, configured: true, source: 'static',
+    label: 'OpenCode', free: true, configured: true, source: 'static',
     models: ['deepseek-v4-flash-free','big-pickle','mimo-v2.5-free','laguna-s-2.1-free','ling-3.0-flash-free','ling-3.0-tiny-free','nemotron-3-ultra-free','north-mini-code-free','longcat-2.0-free'],
   },
   gemini: { label: 'Google Gemini', free: false, configured: false, source: 'static', models: ['gemini-3.5-flash-lite'] },

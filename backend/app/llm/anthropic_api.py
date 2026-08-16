@@ -8,7 +8,7 @@ Claude Opus 5 / Fable 5 / Opus 4.8 / 4.7 會對取樣參數回 400，而 thinkin
 import time
 from typing import Any, Callable, Tuple
 
-from app.core import config
+from app.core import config, messages
 from app.llm.base import (EmptyResponseError, NotConfiguredError,
                           ProviderError, RefusalError)
 from app.llm.util import with_retry
@@ -47,7 +47,7 @@ def _client():
     """每把金鑰快取一個 client（SDK 內部會重用連線池）。"""
     key = api_key()
     if not key:
-        raise NotConfiguredError("尚未設定 Anthropic API key，請點右上角「設定」填入。")
+        raise NotConfiguredError(messages.t("provider.no_key", vendor="Anthropic"))
     c = _clients.get(key)
     if c is None:
         import anthropic
@@ -98,21 +98,25 @@ def _once(model: str, messages: list[dict], system: str) -> str:
         )
     except anthropic.APIStatusError as e:
         # 429／5xx 交給 with_retry 判定為暫時性錯誤；其餘（400/401/404）立即失敗
-        raise ProviderError(f"{LABEL} HTTP {e.status_code}：{str(e)[:200]}")
+        raise ProviderError(messages.t("provider.http_error", vendor=LABEL,
+                                       status=e.status_code, detail=str(e)[:200]))
     except anthropic.APIConnectionError as e:
-        raise ProviderError(f"{LABEL} 連線失敗：{e}")
+        raise ProviderError(messages.t("provider.connect_failed", vendor=LABEL, error=e))
 
     # 安全分類器可能婉拒請求：HTTP 200 但 stop_reason 是 refusal，content 為空或只有片段。
     # 這是內容層面的結果不是錯誤，重試同一份 prompt 沒有意義，要直接讓使用者換模型。
     if getattr(resp, "stop_reason", None) == "refusal":
         detail = getattr(resp, "stop_details", None)
         category = getattr(detail, "category", None) if detail else None
-        raise RefusalError(
-            f"{LABEL} 婉拒了這個請求（{category or '未分類'}）。請改用其他模型處理這支影片。")
+        raise RefusalError(messages.t(
+            "provider.refusal", vendor=LABEL,
+            category=category or messages.t("provider.refusal_uncategorized")))
 
     text = _text_of(resp)
     if not text.strip():
-        raise EmptyResponseError(f"{LABEL} 回應內容為空（stop_reason={getattr(resp, 'stop_reason', None)}）。")
+        raise EmptyResponseError(messages.t(
+            "provider.empty_response", vendor=LABEL,
+            reason=f"stop_reason={getattr(resp, 'stop_reason', None)}"))
     return text
 
 

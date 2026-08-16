@@ -31,15 +31,16 @@ def _card_range(text: str) -> tuple[int, int, int]:
 
 
 # 取捨與分級的判準。比任何張數配額都準，因為它跟著內容密度走
-_IMPORTANCE = """如何決定內容的去留與詳細程度（判斷過程不要輸出，只輸出 JSON）：
+_IMPORTANCE = """如何決定內容的去留與詳細程度（推理過程不要輸出，只輸出 JSON）：
 
-第一步 — 這段素材在教什麼？先認出類型：教學操作／觀念分析／訪談對談／評測比較／新聞資訊／其他。
+第一步 — 這段素材在教什麼？認出類型，把英文代碼填進 content_type 欄位：
+- tutorial（教學操作）／concept（觀念分析）／interview（訪談對談）／review（評測比較）／news（新聞資訊）／other
 第二步 — 依類型認定「一個知識單位」是什麼：
-- 教學／操作型 → 每一個可獨立執行的操作、設定、技巧、避雷提醒
-- 觀念／分析型 → 每一個獨立主張＋它的論證或證據
-- 訪談／對談型 → 每一個獨立觀點、經驗、判斷、故事
-- 評測／比較型 → 每一個比較維度＋該維度的結論
-- 新聞／資訊型 → 每一個獨立事件、數據、影響
+- tutorial 教學／操作型 → 每一個可獨立執行的操作、設定、技巧、避雷提醒
+- concept 觀念／分析型 → 每一個獨立主張＋它的論證或證據
+- interview 訪談／對談型 → 每一個獨立觀點、經驗、判斷、故事
+- review 評測／比較型 → 每一個比較維度＋該維度的結論
+- news 新聞／資訊型 → 每一個獨立事件、數據、影響
 第三步 — 依重要性決定「呈現得多詳細」（注意：這是決定詳細度，不是決定要不要寫）：
 - 核心（講者主要在教的、簡報／板書上的、明講「重點是」「注意」「關鍵在」的）→ 獨立一張卡，條列寫滿
 - 支撐（例子、數字、操作細節、原因解釋）→ 併進對應核心那張卡的條列裡
@@ -115,13 +116,16 @@ def summarize_prompt(content: dict, language: str = languages.DEFAULT) -> str:
 輸出以下 JSON（不加 markdown、不加 ```）：
 {{
   "title": "內容整體標題",
+  "content_type": "tutorial",
   "cards": [
     {{
       "heading": "這張卡的知識點標題（20字以內，要能獨立看懂）",
       "summary": "條列式學習重點，每點用「• 」開頭，4-8點，每點80-150字。要求：寫的是『學到什麼』而不是『講者說了什麼』。包含：具體步驟、操作方法、數字細節、注意事項、原因解釋。讀者看完這張卡片要能直接照做或理解概念，不需要去看影片。",{visual_field}
       "transcript_highlight": "從原文直接複製2-5句最能說明這個段落的原話，保留原文語言，不改寫，但要移除每行開頭的 [秒數] 標記",
       "translation": "上方節錄的目標語言翻譯；原文已是目標語言就填 null",
-      "timestamp_seconds": 0
+      "timestamp_seconds": 0,
+      "actionable": true,
+      "action_hint": "一句話的下一步"
     }}
   ]
 }}
@@ -137,7 +141,12 @@ def summarize_prompt(content: dict, language: str = languages.DEFAULT) -> str:
 - {ts_hint}
 - summary 禁止出現「講者提到」「影片說明」「本段介紹」等空話，直接寫知識內容
 - transcript_highlight 必填：從素材逐字複製，一字不改（可跨行拼接）。禁止改寫、翻譯、自行創作；找不到完美句子就選最接近的原句
-- 每張卡寫完自問「這張卡的每一句話在素材裡找得到依據嗎」，找不到的句子刪掉{visual_rules}"""
+- 每張卡寫完自問「這張卡的每一句話在素材裡找得到依據嗎」，找不到的句子刪掉{visual_rules}
+- content_type：填第一步認出的類型代碼，只能是 tutorial／concept／interview／review／news／other 其中之一（英文小寫，不要翻譯）
+- actionable：布林值（true／false，不是字串）。判準是「讀者看完這張卡，有沒有一件現在就能自己動手的事」——
+  tutorial 是照著操作一遍，concept 是找資料驗證或自己推導一次，review 是實際去比較，news 是追蹤後續發展。
+  純背景鋪陳、純心得感想、單純的定義說明填 false。寧可保守：不確定就填 false
+- action_hint：actionable 為 true 時，用一句話寫出那件事（動詞開頭，25 字內，例如「照著設定一次 webhook 並確認收得到事件」）；false 時填 null"""
 
 
 _DEEPDIVE_SYSTEM = """你是深度解析專家，把複雜概念解釋清楚。
