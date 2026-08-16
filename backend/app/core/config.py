@@ -33,6 +33,7 @@ _FIELDS: tuple[str, ...] = (
     "OUTPUT_DIR",
     "AUTO_RUN_CLI",
     "UI_LANGUAGE",
+    "CLI_EFFORT",
 )
 
 _DEFAULT_FOLDER = "Youtube Card Reader"
@@ -58,6 +59,10 @@ def _defaults() -> dict[str, str]:
         # 介面語言（zh-Hant／en）。與 OUTPUT_LANGUAGE 分開：介面是誰在用，輸出是要寫成什麼語言。
         # 後端回給前端的錯誤訊息也跟著這個走，否則外國使用者會看到中文錯誤。
         "UI_LANGUAGE": os.getenv("UI_LANGUAGE", "zh-Hant").strip() or "zh-Hant",
+        # Codex 的思考強度。實測同一份任務 xhigh 13.9 分鐘、medium 3.8 分鐘，
+        # 而且題數與結構相同——這種「照著素材寫檔案」的任務不需要更深的思考。
+        # 不放進 UI：多一個選項換不到多少價值。要改的人動這裡。
+        "CLI_EFFORT": os.getenv("CLI_EFFORT", "medium").strip() or "medium",
     }
 
 

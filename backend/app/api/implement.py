@@ -158,6 +158,7 @@ def implement_status() -> dict:
         c["default_model"] = agent_cli.default_model(c["name"])
         c["models"] = agent_cli.available_models(c["name"])
         c["efforts"] = list(agent_cli.CLIS[c["name"]].get("efforts") or ())
+        c["effort"] = config.get("CLI_EFFORT")
     return {
         "clis": found,
         "has_cli": bool(found),
@@ -227,7 +228,8 @@ def implement(req: ImplementRequest) -> StreamingResponse:
             return
 
         cli_model = (req.cli_model or "").strip()
-        effort = (req.effort or "").strip()
+        # 沒指定就用設定值（預設 medium）；API 仍留參數給進階使用者覆寫
+        effort = (req.effort or config.get("CLI_EFFORT") or "").strip()
         # 任務書隨執行者的能力改寫：純 API 上不了網，就不能叫它「去查證」
         via_gemini = engine.startswith("api:")
         api_provider = engine[4:] if via_gemini else ""

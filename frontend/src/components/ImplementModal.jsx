@@ -12,7 +12,7 @@ function Bytes({ n }) {
 
 export default function ImplementModal({ state, providers, onClose, onToast }) {
   const { t } = useI18n()
-  const { status, track, setTrack, cli, setCli, cliModel, setCliModel, effort, setEffort, running, lines, outcome,
+  const { status, track, setTrack, cli, setCli, cliModel, setCliModel, running, lines, outcome,
           suggested, cardCount, phase, liveFiles, startedAt, activity } = state
   const [copied, setCopied] = useState(false)
   const logRef = useRef(null)
@@ -55,7 +55,6 @@ export default function ImplementModal({ state, providers, onClose, onToast }) {
   // 所以選了就一定提醒；卡片裡連指令或程式碼都沒有時再加重成警告。
   const activeTrack = track || suggested
   const buildRisky = activeTrack === 'build' && !hasCode(state.cards || [])
-  const efforts = (status?.clis || []).find(c => c.name === cli)?.efforts || []
   const engineValue = `${cli}::${cliModel}`
   const pickEngine = (v) => { const i = v.lastIndexOf('::'); setCli(v.slice(0, i)); setCliModel(v.slice(i + 2)) }
 
@@ -107,15 +106,6 @@ export default function ImplementModal({ state, providers, onClose, onToast }) {
                 </optgroup>}
               </select>
               <span className="settings-hint">{t('implement.outputTo', status.output_dir)}</span>
-            </label>}
-
-            {/* 實測數字寫在 hint 裡，讓人知道這個選擇換到的是什麼 */}
-            {efforts.length > 0 && <label className="settings-field">
-              <span className="settings-label">{t('implement.effort')}</span>
-              <select value={effort} onChange={e => setEffort(e.target.value)}>
-                {efforts.map(x => <option key={x} value={x}>{t(`implement.effort.${x}`)}</option>)}
-              </select>
-              <span className="settings-hint">{t('implement.effortHint')}</span>
             </label>}
 
             {/* 這段是這個功能最重要的誠實揭露：API 產出的內容沒有經過任何查證 */}

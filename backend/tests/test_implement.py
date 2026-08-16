@@ -146,8 +146,15 @@ def test_model_flag_goes_before_the_stdin_dash():
     assert "--model" not in " ".join(plain)
 
 
+def test_effort_defaults_to_medium_without_asking():
+    """不放進 UI：這種「照著素材寫檔案」的任務不需要更深的思考，
+    實測 medium 3.8 分鐘 vs xhigh 13.9 分鐘、題數與結構相同。"""
+    from app.core import config
+    assert config.get("CLI_EFFORT") == "medium"
+
+
 def test_effort_flag_is_codex_only_and_validated():
-    """思考強度只有 Codex 有；亂填的值要被忽略而不是原樣塞進指令。"""
+    """強度值會進 -c 參數，所以只接受白名單內的值。"""
     plain = " ".join(agent_cli.command("codex"))
     med = " ".join(agent_cli.command("codex", "", "medium"))
     assert "model_reasoning_effort" not in plain
@@ -477,6 +484,7 @@ if __name__ == "__main__":
     test_search_path_includes_common_install_dirs()
     test_shell_hint_is_runnable_shape()
     test_model_flag_goes_before_the_stdin_dash()
+    test_effort_defaults_to_medium_without_asking()
     test_effort_flag_is_codex_only_and_validated()
     test_shell_hint_reflects_the_chosen_model()
     test_available_models_never_makes_things_up()
