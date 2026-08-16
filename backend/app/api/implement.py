@@ -69,6 +69,32 @@ def is_noise(text: str) -> bool:
     return bool(_NOISE.search(text))
 
 
+# 挑出「值得顯示成目前動作」的行，而不是反過來猜哪些行沒價值。
+# 猜路徑那條路試過：/bin/zsh -lc "..." 和 /usr/bin/env python3 都以 / 開頭卻是動作，
+# 判準會越補越長。白名單漏掉幾行只是少更新一次心跳，不會在畫面上顯示垃圾。
+_MEANINGFUL = re.compile(
+    r"web[_ ]search|web\.run|apply_patch|PRODUCED:"
+    r"|\b(exec|bash|shell|read|write|edit|create|install|run|search|fetch)\b"
+    r"|^[一-鿿].{8,}"  # 中文開頭的完整句＝agent 在說明自己在做什麼
+    r"""|["']|(^|\s)-{1,2}\w""",   # 帶引號或旗標＝在執行某個指令
+    re.I)
+
+
+def is_meaningful(text: str) -> bool:
+    """這一行適合當成「目前在做什麼」顯示給使用者看嗎？"""
+    return bool(_MEANINGFUL.search(text.strip()))
+
+
+def echo_filter(task: str):
+    """CLI 會把整份任務書原樣回顯一遍。那些行不是「它在做什麼」，是我們自己送進去的。
+
+    用任務書本身當排除清單，比猜 CLI 的輸出格式精準——換一個 CLI 也不會失效。
+    只收長度夠的行，避免把「必須包含：」這種短句連帶排除掉正常輸出。
+    """
+    echoed = {ln.strip() for ln in task.splitlines() if len(ln.strip()) > 12}
+    return lambda text: text.strip() not in echoed
+
+
 def summarize_line(text: str) -> str:
     """把一行輸出壓成適合顯示在進度區的短句。"""
     t = re.sub(r"^\s*\d{4}-\d{2}-\d{2}T[\d:.]+Z\s+\w+\s+[\w:]+:\s*", "", text).strip()
@@ -296,6 +322,7 @@ def implement(req: ImplementRequest) -> StreamingResponse:
         # ── CLI：直接跑 ─────────────────────────────────────────
         code = None
         phase = "start"
+        not_echo = echo_filter(task)
         seen_files: set[str] = set()
         last_scan = 0.0
         for event in agent_cli.run(engine, task, str(workdir), model=cli_model, effort=effort):
@@ -304,8 +331,10 @@ def implement(req: ImplementRequest) -> StreamingResponse:
                 if not text.strip() or is_noise(text):
                     continue
                 yield line({"type": "line", "text": text[:2000]})
-                # 「還活著」的訊號：長時間停在同一階段時，使用者靠這句知道它在做什麼
-                yield line({"type": "activity", "text": summarize_line(text)})
+                # 「還活著」的訊號：長時間停在同一階段時，使用者靠這句知道它在做什麼。
+                # 純路徑不算動作，跳過它讓上一個真正的動作留在畫面上。
+                if is_meaningful(text) and not_echo(text):
+                    yield line({"type": "activity", "text": summarize_line(text)})
                 # 階段變了才發事件，不然前端會被洗版
                 found = detect_phase(text)
                 if found and found != phase:

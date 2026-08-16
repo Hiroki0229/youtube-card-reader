@@ -231,6 +231,38 @@ def test_cli_noise_is_filtered_out():
         assert not impl.is_noise(r), f"不該被濾掉：{r[:50]}"
 
 
+def test_activity_line_picks_actions_not_noise_or_echo():
+    """心跳只該顯示「它在做什麼」。三種東西不算：CLI 雜訊、設定行、任務書的回顯。
+
+    樣本取自真實的 codex 輸出。用白名單挑有價值的行，而不是猜哪些沒價值——
+    猜路徑那條路走過，`/bin/zsh -lc "..."` 也以 / 開頭卻是動作，判準會越補越長。
+    """
+    task = task_markdown("測試影片", "", PLAIN_CARDS, "drill", LANG)
+    not_echo = impl.echo_filter(task)
+
+    def shows(text):
+        return (not impl.is_noise(text)) and impl.is_meaningful(text) and not_echo(text)
+
+    for hidden in [
+        "2026-08-16T03:47:22Z ERROR codex_models_manager::cache: failed to load models cache",
+        "workdir: /private/tmp/claude-501/ab-medium",
+        "session id: 01a008ae-7513-71d3-a3fb-1f423eb88e89",
+        "--------",
+        "做一份 `drill.html`：把影片內容變成可以反覆練習的題庫。",   # 任務書回顯
+        "必須包含：",
+    ]:
+        assert not shows(hidden), f"不該顯示：{hidden[:40]}"
+
+    for shown in [
+        "web search: site:obsidian.md Community plugins",
+        '/bin/zsh -lc "cat TASK.md"',
+        "apply_patch: drill.html",
+        "PRODUCED: drill.html",
+        "官方頁面已確認目前的文件用語，接下來開始寫檔案",
+    ]:
+        assert shows(shown), f"應該顯示：{shown[:40]}"
+
+
 def test_summarize_line_strips_log_prefix():
     got = impl.summarize_line("2026-08-16T03:09:23.575271Z INFO codex_core::x: 正在查證官方文件")
     assert got == "正在查證官方文件"
@@ -492,6 +524,7 @@ if __name__ == "__main__":
     test_default_model_is_read_not_guessed()
     test_workdir_is_safe_for_weird_titles()
     test_cli_noise_is_filtered_out()
+    test_activity_line_picks_actions_not_noise_or_echo()
     test_summarize_line_strips_log_prefix()
     test_design_rules_only_ride_along_when_there_is_html()
     test_build_refuses_to_fake_a_project()
