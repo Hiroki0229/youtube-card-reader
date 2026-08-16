@@ -157,6 +157,7 @@ def implement_status() -> dict:
         # 讓 UI 顯示「這個 CLI 現在會用哪個模型」，以及可以填哪些值
         c["default_model"] = agent_cli.default_model(c["name"])
         c["models"] = agent_cli.available_models(c["name"])
+        c["efforts"] = list(agent_cli.CLIS[c["name"]].get("efforts") or ())
     return {
         "clis": found,
         "has_cli": bool(found),
@@ -226,6 +227,7 @@ def implement(req: ImplementRequest) -> StreamingResponse:
             return
 
         cli_model = (req.cli_model or "").strip()
+        effort = (req.effort or "").strip()
         # 任務書隨執行者的能力改寫：純 API 上不了網，就不能叫它「去查證」
         via_gemini = engine.startswith("api:")
         api_provider = engine[4:] if via_gemini else ""
@@ -285,7 +287,7 @@ def implement(req: ImplementRequest) -> StreamingResponse:
         # ── CLI：有 CLI 但關掉自動執行 → 給指令讓使用者自己跑 ─────────
         if config.get("AUTO_RUN_CLI") == "0" or not req.auto_run:
             yield line({"type": "manual", "cli": engine,
-                        "command": agent_cli.shell_hint(engine, str(task_path), cli_model),
+                        "command": agent_cli.shell_hint(engine, str(task_path), cli_model, effort),
                         "workdir": str(workdir)})
             return
 
@@ -294,7 +296,7 @@ def implement(req: ImplementRequest) -> StreamingResponse:
         phase = "start"
         seen_files: set[str] = set()
         last_scan = 0.0
-        for event in agent_cli.run(engine, task, str(workdir), model=cli_model):
+        for event in agent_cli.run(engine, task, str(workdir), model=cli_model, effort=effort):
             if event["type"] == "line":
                 text = event["text"]
                 if not text.strip() or is_noise(text):
@@ -318,7 +320,7 @@ def implement(req: ImplementRequest) -> StreamingResponse:
                                         "count": len(seen_files)})
             elif event["type"] == "error":
                 yield line({"type": "fatal", "error": event["error"],
-                            "command": agent_cli.shell_hint(engine, str(task_path), cli_model),
+                            "command": agent_cli.shell_hint(engine, str(task_path), cli_model, effort),
                             "workdir": str(workdir)})
                 return
             else:

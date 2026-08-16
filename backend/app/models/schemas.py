@@ -65,6 +65,7 @@ class ImplementRequest(BaseModel):
     track: Optional[str] = None       # 使用者覆寫用（類型判斷會誤判，要留逃生門）
     cli: Optional[str] = None         # "codex" / "claude"；不指定就用偵測到的第一個
     cli_model: Optional[str] = None   # 指定 CLI 要用哪個模型；留空用該 CLI 自己的預設
+    effort: Optional[str] = None      # 思考強度（只有 Codex 有）：快一點還是深一點
     auto_run: bool = True             # False 時只產任務書並回傳指令
     cards: List[Card] = []
 

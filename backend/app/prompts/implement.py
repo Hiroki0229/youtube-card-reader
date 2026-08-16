@@ -67,7 +67,7 @@ _RULES_NO_BROWSE = """1. 你**沒有辦法上網查證**。因此事實只能來
 3. 產出開頭要有一段醒目的提醒，告訴讀者：這份內容是在沒有網路查證的情況下產生的，
    影片沒講到的部分需要自行確認。"""
 
-_COMMON_RULES_TAIL = """3. 產出的 HTML 必須是**單一檔案、可離線開啟**：CSS 與 JS 全部內嵌，不要引用任何 CDN、
+_TAIL_HTML = """3. 產出的 HTML 必須是**單一檔案、可離線開啟**：CSS 與 JS 全部內嵌，不要引用任何 CDN、
    不要用外部字型。圖片用內嵌 SVG，不要連外部圖床。
 4. 版面要能在手機與桌機都讀得順；深色／淺色模式都要看得清楚（用 prefers-color-scheme）。
 5. 所有文字使用指定的輸出語言，但專有名詞、指令、檔名、介面上的按鈕字樣保留原文
@@ -75,6 +75,12 @@ _COMMON_RULES_TAIL = """3. 產出的 HTML 必須是**單一檔案、可離線開
 6. **設計守則是硬規則，逐條照做**（見文件末的「單檔 HTML 設計守則」）。
    交件前跑一次守則最後的自檢清單，任一條沒過就先修再交。
 7. 做完後，最後一行輸出 `PRODUCED:` 後面接你建立的檔案名稱，用逗號分隔。
+"""
+
+# build 不產網頁，就不該帶那份 10KB 的守則，規則也不能指向不存在的東西
+_TAIL_PLAIN = """3. 所有文字使用指定的輸出語言，但專有名詞、指令、檔名保留原文。
+4. 指令要能直接複製貼上執行；不能自動化的步驟標成 `# 手動：…`。
+5. 做完後，最後一行輸出 `PRODUCED:` 後面接你建立的檔案名稱，用逗號分隔。
 """
 
 
@@ -105,9 +111,14 @@ def file_format() -> str:
     return _FILE_FORMAT
 
 
-def _common_rules(can_browse: bool) -> str:
+# 只有這幾條 track 會產出網頁，也只有它們需要（並值得）帶上設計守則
+HTML_TRACKS = ("sop", "study", "drill")
+
+
+def _common_rules(can_browse: bool, with_design: bool) -> str:
     head = _RULES_BROWSE if can_browse else _RULES_NO_BROWSE
-    return f"\n共同鐵則（每一條都會被檢查）：\n{head}\n{_COMMON_RULES_TAIL}"
+    tail = _TAIL_HTML if with_design else _TAIL_PLAIN
+    return f"\n共同鐵則（每一條都會被檢查）：\n{head}\n{tail}"
 
 _TRACK_SPEC = {
     "build": """## 你要做的事
@@ -237,7 +248,9 @@ def task_markdown(video_title: str, video_url: str, cards: list[dict], track: st
     note = "" if can_browse else (
         "\n\n> 注意：上面這段 track 說明裡若提到「查證過的連結」「去官方網站查」，"
         "在你這次的執行環境下**做不到**，一律以下面共同鐵則第 1、2 條為準。")
-    rules_doc = design_rules()
+    # 設計守則將近 10KB，而 agent 每輪工具呼叫都會重送整份 context。
+    # 只有真的要產出網頁的 track 才帶上它。
+    rules_doc = design_rules() if track in HTML_TRACKS else ""
     design_block = f"\n\n---\n\n{rules_doc}\n" if rules_doc else ""
     fmt = _FILE_FORMAT if inline_files else ""
     return f"""# 實作任務：{video_title}
@@ -250,7 +263,7 @@ def task_markdown(video_title: str, video_url: str, cards: list[dict], track: st
 
 {spec}{note}
 {fmt}
-{_common_rules(can_browse)}
+{_common_rules(can_browse, bool(rules_doc))}
 
 ---
 

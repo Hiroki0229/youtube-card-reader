@@ -24,6 +24,8 @@ export default function useImplement({ result, provider, t }) {
   const [track, setTrack] = useState('')
   const [cli, setCli] = useState('')
   const [cliModel, setCliModel] = useState('')   // 留空＝用該 CLI 自己的預設模型
+  // 實測：同一份任務 xhigh 13.9 分鐘、medium 3.8 分鐘，題數與結構相同。預設偏快。
+  const [effort, setEffort] = useState('medium')
   const [running, setRunning] = useState(false)
   const [lines, setLines] = useState([])          // CLI 輸出（只留尾端，避免無限長）
   // 進度不假造百分比：階段是從 CLI 輸出認出來的，檔案是真的落地了才算數
@@ -67,6 +69,7 @@ export default function useImplement({ result, provider, t }) {
         track: useTrack,
         cli: cli || null,
         cli_model: cliModel || null,
+        effort: effort || null,
         auto_run: autoRun,
         cards,
       }, ev => {
@@ -101,9 +104,9 @@ export default function useImplement({ result, provider, t }) {
     } finally {
       setRunning(false)
     }
-  }, [running, cards, track, suggested, provider, result, cli, cliModel, t])
+  }, [running, cards, track, suggested, provider, result, cli, cliModel, effort, t])
 
-  return { open, status, track, setTrack, cli, setCli, cliModel, setCliModel, running, lines, outcome,
+  return { open, status, track, setTrack, cli, setCli, cliModel, setCliModel, effort, setEffort, running, lines, outcome,
            phase, liveFiles, startedAt, activity,
            suggested, cards, cardCount: cards.length, start, close, run }
 }

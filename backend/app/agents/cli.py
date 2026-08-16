@@ -35,6 +35,10 @@ CLIS: dict[str, dict] = {
         "docs": "https://github.com/openai/codex",
         "auth_key": "cli.auth_codex",
         "model_flag": "--model",
+        # 思考強度：實測同一份任務書 xhigh 13.9 分鐘、medium 3.8 分鐘，題數與結構相同，
+        # 差別只在解釋的細膩度。所以這是值得給使用者選的取捨，預設偏快。
+        "effort_arg": ('-c', 'model_reasoning_effort="{}"'),
+        "efforts": ("medium", "high", "xhigh"),
         # 使用者自己的預設寫在這裡；讀得到就顯示在 UI 上，讓人知道現在跑的是哪個模型
         "config": "~/.codex/config.toml",
         "config_re": r'^\s*model\s*=\s*["\']([^"\']+)',
@@ -53,6 +57,9 @@ CLIS: dict[str, dict] = {
         "docs": "https://docs.claude.com/en/docs/claude-code/overview",
         "auth_key": "cli.auth_claude",
         "model_flag": "--model",
+        # Claude Code 沒有等價的思考強度旗標
+        "effort_arg": None,
+        "efforts": (),
         "config": "~/.claude/settings.json",
         "config_re": r'"model"\s*:\s*"([^"]+)"',
         # claude 沒有可讀的模型清單檔；用 --help 明列的三個別名
@@ -166,12 +173,20 @@ def detect() -> list[dict]:
     return found
 
 
-def command(name: str, model: str = "") -> list[str]:
-    """組出該 CLI 的完整指令（prompt 從 stdin 餵）。model 留空就用 CLI 自己的預設。"""
+def command(name: str, model: str = "", effort: str = "") -> list[str]:
+    """組出該 CLI 的完整指令（prompt 從 stdin 餵）。
+
+    model／effort 留空就用 CLI 自己的設定。旗標要放在子指令之後、stdin 的 "-" 之前，
+    否則 codex 會把它們當成 prompt 的一部分讀進去。
+    """
     spec = CLIS[name]
     path = search_path()
-    extra = [spec["model_flag"], model] if model and spec.get("model_flag") else []
-    # 模型旗標要放在子指令之後、stdin 的 "-" 之前，否則 codex 會把它當成 prompt
+    extra: list[str] = []
+    if model and spec.get("model_flag"):
+        extra += [spec["model_flag"], model]
+    if effort and spec.get("effort_arg") and effort in (spec.get("efforts") or ()):
+        flag, tpl = spec["effort_arg"]
+        extra += [flag, tpl.format(effort)]
     args = list(spec["args"])
     if extra:
         pos = len(args) - 1 if args and args[-1] == "-" else len(args)
@@ -179,15 +194,15 @@ def command(name: str, model: str = "") -> list[str]:
     return [shutil.which(spec["bin"], path=path) or spec["bin"], *args]
 
 
-def shell_hint(name: str, task_path: str, model: str = "") -> str:
+def shell_hint(name: str, task_path: str, model: str = "", effort: str = "") -> str:
     """給使用者自己貼進終端機的一行指令。"""
-    parts = command(name, model)[1:]          # 去掉絕對路徑，用指令名比較好讀
+    parts = command(name, model, effort)[1:]          # 去掉絕對路徑，用指令名比較好讀
     return f'cat "{task_path}" | {CLIS[name]["bin"]} ' + " ".join(parts)
 
 
 def run(name: str, task: str, workdir: str,
         on_line: Callable[[str], None] | None = None,
-        timeout: int = DEFAULT_TIMEOUT, model: str = "") -> Iterator[dict]:
+        timeout: int = DEFAULT_TIMEOUT, model: str = "", effort: str = "") -> Iterator[dict]:
     """在 workdir 執行 CLI，把任務從 stdin 餵進去，逐行 yield 輸出。
 
     事件：{"type":"line","text":...}／{"type":"done","code":int}／{"type":"error","error":...}
@@ -199,7 +214,7 @@ def run(name: str, task: str, workdir: str,
     Path(workdir).mkdir(parents=True, exist_ok=True)
     try:
         proc = subprocess.Popen(
-            command(name, model), cwd=workdir, env=clean_env(),
+            command(name, model, effort), cwd=workdir, env=clean_env(),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, bufsize=1)
     except FileNotFoundError:

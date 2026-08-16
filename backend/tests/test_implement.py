@@ -146,6 +146,20 @@ def test_model_flag_goes_before_the_stdin_dash():
     assert "--model" not in " ".join(plain)
 
 
+def test_effort_flag_is_codex_only_and_validated():
+    """思考強度只有 Codex 有；亂填的值要被忽略而不是原樣塞進指令。"""
+    plain = " ".join(agent_cli.command("codex"))
+    med = " ".join(agent_cli.command("codex", "", "medium"))
+    assert "model_reasoning_effort" not in plain
+    assert 'model_reasoning_effort="medium"' in med
+    assert med.rstrip().endswith("-"), "旗標要在 stdin 佔位符之前"
+    # 不在白名單的值一律忽略，不能讓使用者送任意字串進 -c
+    for bad in ("亂寫", "ultra; rm -rf /", ""):
+        assert "model_reasoning_effort" not in " ".join(agent_cli.command("codex", "", bad))
+    # Claude Code 沒有這個概念
+    assert "model_reasoning_effort" not in " ".join(agent_cli.command("claude", "", "medium"))
+
+
 def test_shell_hint_reflects_the_chosen_model():
     hint = agent_cli.shell_hint("codex", "/tmp/T.md", "gpt-5.6")
     assert "--model gpt-5.6" in hint and hint.rstrip().endswith("-")
@@ -214,6 +228,21 @@ def test_summarize_line_strips_log_prefix():
     got = impl.summarize_line("2026-08-16T03:09:23.575271Z INFO codex_core::x: 正在查證官方文件")
     assert got == "正在查證官方文件"
     assert len(impl.summarize_line("x" * 500)) <= 110
+
+
+def test_design_rules_only_ride_along_when_there_is_html():
+    """守則將近 10KB，而 agent 每輪工具呼叫都重送整份 context。
+    不產網頁的 track 不該付這個成本，而且規則也不能指向一份沒附上的文件。"""
+    cards = PLAIN_CARDS
+    for track in ("sop", "study", "drill"):
+        t = task_markdown("影片", "", cards, track, LANG)
+        assert "border-radius" in t, f"{track} 應該帶設計守則"
+        assert "文件末的" in t, f"{track} 的規則要指得到那份守則"
+    build = task_markdown("影片", "", cards, "build", LANG)
+    assert "border-radius" not in build, "build 不產網頁，不該帶守則"
+    assert "文件末的" not in build, "沒附守則就不能提到它（斷掉的指標）"
+    assert "PRODUCED:" in build       # 但共同鐵則的其他條還在
+    assert len(build) < len(task_markdown("影片", "", cards, "sop", LANG))
 
 
 def test_build_refuses_to_fake_a_project():
@@ -448,6 +477,7 @@ if __name__ == "__main__":
     test_search_path_includes_common_install_dirs()
     test_shell_hint_is_runnable_shape()
     test_model_flag_goes_before_the_stdin_dash()
+    test_effort_flag_is_codex_only_and_validated()
     test_shell_hint_reflects_the_chosen_model()
     test_available_models_never_makes_things_up()
     test_available_models_survives_a_broken_cache()
@@ -455,6 +485,7 @@ if __name__ == "__main__":
     test_workdir_is_safe_for_weird_titles()
     test_cli_noise_is_filtered_out()
     test_summarize_line_strips_log_prefix()
+    test_design_rules_only_ride_along_when_there_is_html()
     test_build_refuses_to_fake_a_project()
     test_prompt_switches_by_whether_the_engine_can_browse()
     test_inline_file_format_only_for_single_shot_engines()
