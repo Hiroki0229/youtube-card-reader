@@ -174,8 +174,13 @@ def _video_duration(youtube_url: str) -> Optional[int]:
     """取得影片總長度（秒），當作時間戳的權威上界。拿不到回 None（略過上界檢查）。"""
     try:
         import yt_dlp
-        with yt_dlp.YoutubeDL({"quiet": True, "skip_download": True,
-                               "no_warnings": True}) as y:
+        opts = {
+            "quiet": True,
+            "skip_download": True,
+            "no_warnings": True,
+            "extractor_args": {"youtube": {"player_client": ["ios", "android", "web", "mweb"]}},
+        }
+        with yt_dlp.YoutubeDL(opts) as y:
             info = y.extract_info(youtube_url, download=False)
         sec = (info or {}).get("duration")
         return int(sec) if sec else None

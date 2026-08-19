@@ -37,8 +37,20 @@ def _get_model():
 def download_audio(url: str, tmpdir: str) -> str:
     """用 venv 內的 yt-dlp 下載音訊（不含影像），回傳音檔路徑。"""
     out_tmpl = os.path.join(tmpdir, "audio.%(ext)s")
-    cmd = [sys.executable, "-m", "yt_dlp", "-f", "bestaudio/best",
-           "--no-playlist", "--no-warnings", "-o", out_tmpl, url]
+    cmd = [
+        sys.executable, "-m", "yt_dlp",
+        "-f", "bestaudio/ba/b/18/best",
+        "--extractor-args", "youtube:player_client=ios,android,web,mweb",
+        "--no-playlist",
+        "--no-warnings",
+        "-o", out_tmpl,
+    ]
+    if shutil.which("node"):
+        cmd.extend(["--js-runtimes", "node"])
+    elif shutil.which("deno"):
+        cmd.extend(["--js-runtimes", "deno"])
+    cmd.append(url)
+
     try:
         subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=1800)
     except subprocess.CalledProcessError as e:
