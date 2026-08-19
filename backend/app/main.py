@@ -11,7 +11,18 @@ from app.api.settings import router as settings_router
 from app.api.summarize import router as summarize_router
 
 app = FastAPI(title="Youtube Card Reader")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:15273",
+        "http://localhost:15273",
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 app.include_router(summarize_router)
 app.include_router(implement_router)
 app.include_router(ask_router)

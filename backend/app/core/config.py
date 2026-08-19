@@ -77,13 +77,28 @@ def _read_settings_file() -> dict:
         return {}
 
 
+from app.core import crypto
+
+# 敏感金鑰欄位（儲存於 settings.json 時自動透過本機特徵對稱加密）
+_SENSITIVE_FIELDS: tuple[str, ...] = (
+    "GEMINI_API_KEY",
+    "OPENCODE_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+)
+
+
 def _load() -> dict[str, str]:
-    """合併 .env 與 settings.json，得到目前生效的設定。"""
+    """合併 .env 與 settings.json，得到目前生效的設定。敏感金鑰自動解密。"""
     data = _defaults()
     saved = _read_settings_file()
     for k in _FIELDS:
         if saved.get(k) is not None:
-            data[k] = str(saved[k]).strip()
+            raw_val = str(saved[k]).strip()
+            if k in _SENSITIVE_FIELDS:
+                raw_val = crypto.decrypt_value(raw_val)
+            data[k] = raw_val
     if not data.get("OBSIDIAN_NOTES_FOLDER"):
         data["OBSIDIAN_NOTES_FOLDER"] = _DEFAULT_FOLDER
     if not data.get("OUTPUT_LANGUAGE"):
@@ -111,7 +126,7 @@ def all_settings() -> dict[str, str]:
 def save(updates: dict) -> dict[str, str]:
     """更新並持久化設定。只更新有提供（非 None）的欄位；空字串代表清除。
 
-    寫檔時保留 settings.json 內本程式不認得的欄位，避免覆寫使用者的其他資料。
+    寫檔時保留 settings.json 內本程式不認得的欄位，敏感金鑰欄位自動進行本機加密。
     """
     for k, v in (updates or {}).items():
         if k in _FIELDS:
@@ -126,7 +141,13 @@ def save(updates: dict) -> dict[str, str]:
         _cache["UI_LANGUAGE"] = "zh-Hant"
 
     merged = _read_settings_file()
-    merged.update(_cache)
+    # 寫入前將敏感金鑰加密
+    for k, v in _cache.items():
+        if k in _SENSITIVE_FIELDS:
+            merged[k] = crypto.encrypt_value(v) if v else ""
+        else:
+            merged[k] = v
+
     try:
         _SETTINGS_PATH.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception as e:

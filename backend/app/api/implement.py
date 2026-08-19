@@ -383,7 +383,7 @@ def _fallback_teach() -> str:
 _VIEWABLE = {".html": "html", ".md": "markdown", ".txt": "text", ".py": "code",
              ".js": "code", ".jsx": "code", ".ts": "code", ".css": "code",
              ".json": "code", ".sh": "code", ".yml": "code", ".yaml": "code",
-             ".toml": "code", ".env": "code"}
+             ".toml": "code"}
 _MAX_VIEW_BYTES = 2_000_000
 
 

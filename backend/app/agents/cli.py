@@ -144,8 +144,15 @@ def clean_env() -> dict[str, str]:
     LANG／TMPDIR 影響輸出編碼與暫存位置。刻意**不**繼承 CLAUDECODE／CLAUDE_CODE_*／
     ANTHROPIC_*／OPENAI_*——那些會讓子行程連到錯的端點或用錯憑證。
     """
-    keep = ("HOME", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "TMPDIR")
+    keep = ("HOME", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "TMPDIR",
+            "USERPROFILE", "USERNAME", "APPDATA", "LOCALAPPDATA", "SystemRoot")
     env = {k: v for k, v in os.environ.items() if k in keep}
+    if "HOME" not in env and "USERPROFILE" in os.environ:
+        env["HOME"] = os.environ["USERPROFILE"]
+    if "USER" not in env and "USERNAME" in os.environ:
+        env["USER"] = os.environ["USERNAME"]
+    if "LOGNAME" not in env and "USERNAME" in os.environ:
+        env["LOGNAME"] = os.environ["USERNAME"]
     env["PATH"] = search_path()
     env.setdefault("TERM", "dumb")      # 關掉互動式 CLI 的花俏輸出，讓串流好解析
     return env

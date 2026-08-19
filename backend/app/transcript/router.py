@@ -78,16 +78,30 @@ def _pack(kind: str, video_id: Optional[str], text: str, is_chinese: bool,
                    is_chinese=is_chinese, has_timestamps=True, transcript_source=source)
 
 
+from urllib.parse import urlparse
+
+_ALLOWED_SCHEMES = {"http", "https"}
+
+
 def route_content(url: str, deep_visual: bool = False) -> Content:
     """依網址型態取得內容。取不到會拋出例外（ValueError 代表使用者輸入問題）。"""
-    video_id = captions.extract_video_id(url)
+    u = (url or "").strip()
+    parsed = urlparse(u)
+    if parsed.scheme.lower() not in _ALLOWED_SCHEMES or not parsed.netloc:
+        raise ValueError(f"無效的網址或不支援的協定：{u[:60]}")
+
+    video_id = captions.extract_video_id(u)
     if video_id:
-        return _youtube(url, video_id, deep_visual)
+        return _youtube(u, video_id, deep_visual)
 
     try:
-        title, text = fetch_article(url)
+        title, text = fetch_article(u)
         return Content(type="article", video_id=None, title=title, text=text,
                        is_chinese=False, has_timestamps=False, transcript_source=None)
-    except Exception:
-        text, is_chinese = whisper_local.transcribe_url(url)
+    except Exception as e:
+        # 如果是 SSRF / 安全阻擋相關的 ValueError，直接向上拋出，不退回音訊下載
+        if isinstance(e, ValueError) and ("禁止存取" in str(e) or "不支援" in str(e)):
+            raise
+        text, is_chinese = whisper_local.transcribe_url(u)
         return _pack("video", None, text, is_chinese, "whisper")
+

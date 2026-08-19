@@ -11,3 +11,4 @@ json-repair>=0.30.0
 yt-dlp>=2025.1.1
 faster-whisper>=1.1.0
 opencc-python-reimplemented
+cryptography>=42.0.0

@@ -120,7 +120,7 @@ def test_clean_env_drops_agent_vars_but_keeps_identity():
 def test_search_path_includes_common_install_dirs():
     path = agent_cli.search_path().split(os.pathsep)
     assert str(Path("~/.local/bin").expanduser()) in path
-    assert "/opt/homebrew/bin" in path
+    assert str(Path("/opt/homebrew/bin")) in path
     assert len(path) == len(set(path)), "PATH 不該有重複項"
 
 
