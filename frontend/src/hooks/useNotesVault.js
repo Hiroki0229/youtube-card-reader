@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import * as api from '../api.js'
-import { buildMarkdown } from '../utils.js'
+import { buildMarkdown, sanitizeFolderName } from '../utils.js'
 
 // Obsidian vault 連線狀態、資料夾/筆記清單、存檔選項與存檔動作
 export default function useNotesVault(initialSaveOpts, videoTitle = '') {
