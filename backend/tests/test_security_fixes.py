@@ -38,20 +38,25 @@ def test_c1_local_crypto_encryption_and_decryption():
 
 def test_c1_config_saves_encrypted_and_reads_decrypted():
     """C-1：config.save 寫入 settings.json 時為密文，但在記憶體內為解密後的明文。"""
-    test_key = "AIzaSySaveTestKey999"
-    config.save({"GEMINI_API_KEY": test_key})
-    
-    # 記憶體讀取應為明文（供 SDK 正常調用）
-    assert config.get("GEMINI_API_KEY") == test_key
-    
-    # 讀取磁碟上的 settings.json 原始檔案，應為 enc: 密文
-    raw_json = config._read_settings_file()
-    assert raw_json.get("GEMINI_API_KEY", "").startswith("enc:")
-    assert raw_json.get("GEMINI_API_KEY") != test_key
-    
-    # 重設清除
-    config.save({"GEMINI_API_KEY": ""})
-    assert config.get("GEMINI_API_KEY") == ""
+    original_raw = config._SETTINGS_PATH.read_text(encoding="utf-8") if config._SETTINGS_PATH.exists() else None
+    original_cache = dict(config._cache)
+    try:
+        test_key = "AIzaSySaveTestKey999"
+        config.save({"GEMINI_API_KEY": test_key})
+        
+        # 記憶體讀取應為明文（供 SDK 正常調用）
+        assert config.get("GEMINI_API_KEY") == test_key
+        
+        # 讀取磁碟上的 settings.json 原始檔案，應為 enc: 密文
+        raw_json = config._read_settings_file()
+        assert raw_json.get("GEMINI_API_KEY", "").startswith("enc:")
+        assert raw_json.get("GEMINI_API_KEY") != test_key
+    finally:
+        # 還原測試前使用者原本的設定
+        if original_raw is not None:
+            config._SETTINGS_PATH.write_text(original_raw, encoding="utf-8")
+        config._cache.clear()
+        config._cache.update(original_cache)
 
 
 def test_h1_cors_allowed_origins():
