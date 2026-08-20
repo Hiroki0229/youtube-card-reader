@@ -96,6 +96,8 @@ export default function App() {
     t,
   })
   const { result } = stream
+  const cards = result?.cards || []
+  const hasVideo = result?.source_type === 'youtube' && !!result?.youtube_video_id
   const cardsHook = useCards(result, provider, { index: SAVED.index, deepdives: SAVED.deepdives, clips: SAVED.clips })
   const notes = useNotesVault(SAVED.saveOpts, result?.title || '')
   const implement = useImplement({ result, provider, t })
@@ -119,9 +121,6 @@ export default function App() {
     refreshModels()   // 剛填的金鑰要立刻反映在模型下拉選單上
     showToast(t('toast.settingsSaved'))
   }
-
-  const cards=result?.cards||[]
-  const hasVideo=result?.source_type==='youtube'&&!!result?.youtube_video_id
 
   async function handleSummarize(){
     cardsHook.resetForNewResult()
