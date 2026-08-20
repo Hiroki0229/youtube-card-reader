@@ -102,10 +102,14 @@ export default function App() {
   const notes = useNotesVault(SAVED.saveOpts, result?.title || '')
   const implement = useImplement({ result, provider, t })
 
-  // 卡片一生成或收錄時，以卡片標題做預設筆記標題
+  // 卡片一生成或收錄時，以最新卡片標題做預設筆記標題
   useEffect(()=>{
-    if(!filename && cards.length>0){
-      setFilename(cardsHook.clips[0]?.heading || cards[0].heading || '')
+    if(cardsHook.clips.length>0){
+      if(!filename || filename===result?.title){
+        setFilename(cardsHook.clips[cardsHook.clips.length-1].heading)
+      }
+    } else if(!filename && cards.length>0){
+      setFilename(cards[cardsHook.index]?.heading || cards[0].heading || '')
     }
   },[cards.length, cardsHook.clips.length])
 
@@ -134,16 +138,24 @@ export default function App() {
   function clipCard(i){
     const c=cardsHook.clipCard(i)
     if(c){
-      if(!filename || filename===result?.title){
-        setFilename(c.heading)
-      }
+      setFilename(c.heading)
       showToast(t('toast.clipped',c.heading))
+    }
+  }
+  function handleRemoveClip(id){
+    const remaining=cardsHook.clips.filter(c=>c.id!==id)
+    cardsHook.removeClip(id)
+    if(remaining.length>0){
+      setFilename(remaining[remaining.length-1].heading)
+    } else if(cards.length>0){
+      setFilename(cards[cardsHook.index]?.heading||cards[0].heading||'')
     }
   }
   function handleClipAll(){
     const count=cardsHook.clipAll()
-    if(!filename && cards.length>0){
-      setFilename(cards[0].heading)
+    const activeHeading=cards[cardsHook.index]?.heading||cards[0]?.heading
+    if(activeHeading){
+      setFilename(activeHeading)
     }
     if(count>0) showToast(t('toast.clippedAll',count))
     else if(cards.length>0) showToast(t('deck.clippedAll'))
@@ -226,7 +238,7 @@ export default function App() {
       {/* 筆記／問模型：可最小化浮窗，不佔用主版面，展開/收合狀態記在 localStorage */}
       {result&&<>
         <FloatingPanel id="notes" corner="br" title={t('panel.notes')} icon="NOTE" badge={cardsHook.clips.length||null}>
-          <NotesPanel vault={notes.vault} clips={cardsHook.clips} onClipNoteChange={cardsHook.updateClipNote} onRemoveClip={cardsHook.removeClip} freeNote={freeNote} setFreeNote={setFreeNote} filename={filename} setFilename={setFilename} onSave={handleSave} saving={notes.saving} folders={notes.folders} noteFiles={notes.noteFiles} saveOpts={notes.saveOpts} onSaveOptsChange={notes.onSaveOptsChange} onClipAll={handleClipAll} hasCards={cards.length>0} unclippedCount={cards.length-cardsHook.clippedIds.size}/>
+          <NotesPanel vault={notes.vault} clips={cardsHook.clips} onClipNoteChange={cardsHook.updateClipNote} onRemoveClip={handleRemoveClip} freeNote={freeNote} setFreeNote={setFreeNote} filename={filename} setFilename={setFilename} onSave={handleSave} saving={notes.saving} folders={notes.folders} noteFiles={notes.noteFiles} saveOpts={notes.saveOpts} onSaveOptsChange={notes.onSaveOptsChange} onClipAll={handleClipAll} hasCards={cards.length>0} unclippedCount={cards.length-cardsHook.clippedIds.size}/>
         </FloatingPanel>
         <FloatingPanel id="ask" corner="bl" title={t('panel.ask')} icon="AI">
           <AskPanel videoId={result?.youtube_video_id||null}/>
