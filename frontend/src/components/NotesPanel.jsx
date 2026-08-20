@@ -1,16 +1,25 @@
 import { fmtTime } from '../utils.js'
 import { useI18n } from '../i18n/index.jsx'
 
-export default function NotesPanel({ vault, clips, onClipNoteChange, onRemoveClip, freeNote, setFreeNote, filename, setFilename, onSave, saving, folders, noteFiles, saveOpts, onSaveOptsChange }) {
+export default function NotesPanel({ vault, clips, onClipNoteChange, onRemoveClip, freeNote, setFreeNote, filename, setFilename, onSave, saving, folders, noteFiles, saveOpts, onSaveOptsChange, onClipAll, hasCards, unclippedCount }) {
   const { t } = useI18n()
   const vs=!vault.configured?{cls:'warn',text:t('vault.notConfigured')}:!vault.exists?{cls:'warn',text:t('vault.missing')}:{cls:'ok',text:t('vault.connected')}
   const isAppend=saveOpts.mode==='append'
   const canSave=!saving&&(clips.length>0||freeNote.trim())&&(!isAppend||saveOpts.targetFile)
   return (
     <aside className="notes">
-      <div className="notes-head"><h3>{t('notes.title')}</h3><span className="count">{t('notes.count',clips.length)}</span></div>
+      <div className="notes-head">
+        <h3>{t('notes.title')}</h3>
+        <span className="count">{t('notes.count',clips.length)}</span>
+        {unclippedCount>0&&<button className="btn-clip-all-mini" onClick={onClipAll} title={t('notes.clipAll')}>{t('notes.clipAll')}</button>}
+      </div>
       <div className="clip-list">
-        {clips.length===0?<p className="empty-clip">{t('notes.empty')}</p>
+        {clips.length===0?(
+          <div className="empty-clip-box">
+            <p className="empty-clip">{t('notes.empty')}</p>
+            {hasCards&&<button className="btn-clip-all-empty" onClick={onClipAll}>{t('notes.clipAll')}</button>}
+          </div>
+        )
           :clips.map(c=>(
             <div className="clip-item" key={c.id}>
               <div className="clip-head">{c.ts!=null&&<span className="ts">{fmtTime(c.ts)}</span>}<strong>{c.heading}</strong><button className="rm" onClick={()=>onRemoveClip(c.id)} aria-label={t('notes.remove')}>×</button></div>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import * as api from '../api.js'
 
 // 影片類型 → 預設行動路線（與後端 prompts/implement.py 的 resolve_track 一致）。
@@ -32,6 +32,7 @@ export default function useImplement({ result, provider, t }) {
   const [startedAt, setStartedAt] = useState(0)
   const [activity, setActivity] = useState(null)   // {text, at}：最近一次有意義的動作
   const [outcome, setOutcome] = useState(null)    // {kind:'done'|'manual'|'teach'|'error', ...}
+  const abortRef = useRef(null)
 
   const cards = result?.cards || []
   const suggested = defaultTrack(result?.content_type, hasCode(cards))
@@ -50,12 +51,27 @@ export default function useImplement({ result, provider, t }) {
     setTrack(tr => tr || suggested)
   }, [suggested])
 
-  const close = useCallback(() => { setOpen(false) }, [])
+  const cancel = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort()
+      abortRef.current = null
+    }
+    setRunning(false)
+    setOutcome({ kind: 'error', error: t('implement.cancelled') })
+  }, [t])
+
+  const close = useCallback(() => {
+    if (running) cancel()
+    setOpen(false)
+  }, [running, cancel])
 
   const run = useCallback(async (opts = {}) => {
     if (running || !cards.length) return
     const useTrack = opts.track || track || suggested
     const autoRun = opts.autoRun !== undefined ? opts.autoRun : true
+    if (abortRef.current) abortRef.current.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     setRunning(true); setLines([]); setOutcome(null); setTrack(useTrack)
     setPhase('start'); setLiveFiles([]); setStartedAt(Date.now()); setActivity(null)
     try {
@@ -77,7 +93,7 @@ export default function useImplement({ result, provider, t }) {
           setActivity({ text: ev.text, at: Date.now() })
         } else if (ev.type === 'phase') {
           setPhase(ev.phase)
-        } else if (ev.type === 'file_progress') {
+        } else if (ev.file_progress) {
           setLiveFiles(prev => prev.some(f => f.name === ev.file.name) ? prev : [...prev, ev.file])
         } else if (ev.type === 'start') {
           setOutcome({ kind: 'running', ...ev })
@@ -95,15 +111,18 @@ export default function useImplement({ result, provider, t }) {
         } else if (ev.type === 'fatal') {
           setOutcome(o => ({ ...(o || {}), kind: 'error', ...ev }))
         }
-      })
+      }, controller.signal)
     } catch (e) {
-      setOutcome({ kind: 'error', error: t('implement.failed', e.message) })
+      if (e.name !== 'AbortError' && !controller.signal.aborted) {
+        setOutcome({ kind: 'error', error: t('implement.failed', e.message) })
+      }
     } finally {
+      if (abortRef.current === controller) abortRef.current = null
       setRunning(false)
     }
   }, [running, cards, track, suggested, provider, result, cli, cliModel, t])
 
   return { open, status, track, setTrack, cli, setCli, cliModel, setCliModel, running, lines, outcome,
            phase, liveFiles, startedAt, activity,
-           suggested, cards, cardCount: cards.length, start, close, run }
+           suggested, cards, cardCount: cards.length, start, close, run, cancel }
 }

@@ -39,8 +39,12 @@ def _safe_relpath(rel: str) -> Path:
 
 def _safe_name(name: str) -> str:
     """新筆記檔名（不含副檔名）。"""
-    name = re.sub(r'[\\/:*?"<>|]', "", name or "").strip()
-    return name[:120] or datetime.now().strftime(messages.t("notes.default_filename"))
+    name = re.sub(r'[\\/:*?"<>|]', "", name or "")
+    name = re.sub(r'\s+', " ", name).strip().strip(".")
+    if name:
+        return name[:120]
+    dt = datetime.now().strftime("%Y-%m-%d %H%M")
+    return messages.t("notes.default_filename", dt=dt)
 
 
 def _safe_filename(name: str) -> str:

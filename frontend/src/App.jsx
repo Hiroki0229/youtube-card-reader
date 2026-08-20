@@ -30,7 +30,7 @@ const SPLIT_MIN=20,SPLIT_MAX=80,SPLIT_DEFAULT=50
 function readPreference(key){try{return localStorage.getItem(key)}catch{return null}}
 function loadSplit(){try{const v=parseFloat(readPreference(SPKEY));return isFinite(v)&&v>=SPLIT_MIN&&v<=SPLIT_MAX?v:SPLIT_DEFAULT}catch{return SPLIT_DEFAULT}}
 
-function GenerationProgress({ progress }){
+function GenerationProgress({ progress, onCancel }){
   const { t } = useI18n()
   const [now,setNow]=useState(Date.now())
   useEffect(()=>{
@@ -57,7 +57,13 @@ function GenerationProgress({ progress }){
   else if(progress.state==='request') label=t('progress.waiting',seg,model,(progress.attempt||1)>1?t('progress.retrySuffix',progress.attempt,progress.tries):'')
   else if(progress.state==='next') label=completed<total?t('progress.next',completed+1):t('progress.done')
   return <div className="generation-progress" role="progressbar" aria-label={label} aria-valuemin="0" aria-valuemax={total||undefined} aria-valuenow={total?completed:undefined}>
-    <div className="generation-meta"><span className="generation-label">{label}</span><span className="generation-count">{total>0?`${completed} / ${total} · `:''}{clock}</span></div>
+    <div className="generation-meta">
+      <span className="generation-label">{label}</span>
+      <span className="generation-count">
+        {total>0?`${completed} / ${total} · `:''}{clock}
+        {onCancel&&<button className="btn-progress-cancel" onClick={onCancel} title={t('input.cancelTitle')}>{t('input.cancel')}</button>}
+      </span>
+    </div>
     <div className="generation-track"><span style={{transform:`scaleX(${ratio})`}}/></div>
   </div>
 }
@@ -114,9 +120,19 @@ export default function App() {
 
   async function handleSummarize(){
     cardsHook.resetForNewResult()
+    setFilename('')
     await stream.summarize(url,provider,deepVisual)
   }
+  function handleCancelSummarize(){
+    stream.cancel()
+    showToast(t('toast.cancelled'))
+  }
   function clipCard(i){const c=cardsHook.clipCard(i); if(c)showToast(t('toast.clipped',c.heading))}
+  function handleClipAll(){
+    const count=cardsHook.clipAll()
+    if(count>0) showToast(t('toast.clippedAll',count))
+    else if(cards.length>0) showToast(t('deck.clippedAll'))
+  }
   async function onDeepDive(i){try{await cardsHook.handleDeepDive(i)}catch(e){showToast(t('toast.deepdiveFailed',e.message),true)}}
   async function handleSave(){
     try{
@@ -131,6 +147,7 @@ export default function App() {
 
   // 供應商下拉：沒填金鑰的付費供應商仍然列出（標註需填金鑰），使用者才知道有這個選項
   const providerGroups=PROVIDER_ORDER.map(key=>providers[key]?{key,...providers[key]}:null).filter(Boolean)
+  const isGenerating=stream.loading||!!stream.progress
 
   return (
     <>
@@ -174,22 +191,26 @@ export default function App() {
               <input type="checkbox" checked={deepVisual} onChange={e=>setDeepVisual(e.target.checked)}/>
               <span><strong>{t('input.deepVisual')}</strong></span>
             </label>
-            <button className="btn-go" onClick={handleSummarize} disabled={stream.loading||!!stream.progress}>{(stream.progress||stream.loading)?t('input.running'):t('input.go')}</button>
+            {isGenerating ? (
+              <button className="btn-go btn-cancel-summarize" onClick={handleCancelSummarize} title={t('input.cancelTitle')}>{t('input.cancel')}</button>
+            ) : (
+              <button className="btn-go" onClick={handleSummarize}>{t('input.go')}</button>
+            )}
           </section>
         </>
       )}
-      <GenerationProgress progress={stream.progress}/>
+      <GenerationProgress progress={stream.progress} onCancel={handleCancelSummarize}/>
       {stream.error&&<p className="error-bar">{stream.error}</p>}
       {/* 有影片時左右並排；純文章來源則讓重點區佔滿 */}
       <main className="workspace" ref={workspaceRef}>
         {stream.loading?<div className="loading-space" aria-hidden="true"/>
         :!result?<div className="empty-state"><span className="empty-logo"><BrandMark/><strong>{t('app.name')}</strong></span><p className="empty-tagline">{t('app.tagline')}</p></div>
-        :<>{hasVideo&&<VideoPane videoId={result.youtube_video_id} startAt={cardsHook.startAt} cards={cards} activeIndex={cardsHook.index} onJump={i=>cardsHook.jumpToCard(i,true)}/>}{hasVideo&&<Splitter onCommit={setSplit}/>}<CardDeck result={result} index={cardsHook.index} setIndex={cardsHook.setIndex} clippedIds={cardsHook.clippedIds} onClip={clipCard} onJumpVideo={i=>cardsHook.jumpToCard(i,true)} deepdives={cardsHook.deepdives} onDeepDive={onDeepDive} deepdiveLoading={cardsHook.ddLoading} onImplement={implement.start} fullWidth={!hasVideo}/></>}
+        :<>{hasVideo&&<VideoPane videoId={result.youtube_video_id} startAt={cardsHook.startAt} cards={cards} activeIndex={cardsHook.index} onJump={i=>cardsHook.jumpToCard(i,true)}/>}{hasVideo&&<Splitter onCommit={setSplit}/>}<CardDeck result={result} index={cardsHook.index} setIndex={cardsHook.setIndex} clippedIds={cardsHook.clippedIds} onClip={clipCard} onClipAll={handleClipAll} onJumpVideo={i=>cardsHook.jumpToCard(i,true)} deepdives={cardsHook.deepdives} onDeepDive={onDeepDive} deepdiveLoading={cardsHook.ddLoading} onImplement={implement.start} fullWidth={!hasVideo}/></>}
       </main>
       {/* 筆記／問模型：可最小化浮窗，不佔用主版面，展開/收合狀態記在 localStorage */}
       {result&&<>
         <FloatingPanel id="notes" corner="br" title={t('panel.notes')} icon="NOTE" badge={cardsHook.clips.length||null}>
-          <NotesPanel vault={notes.vault} clips={cardsHook.clips} onClipNoteChange={cardsHook.updateClipNote} onRemoveClip={cardsHook.removeClip} freeNote={freeNote} setFreeNote={setFreeNote} filename={filename} setFilename={setFilename} onSave={handleSave} saving={notes.saving} folders={notes.folders} noteFiles={notes.noteFiles} saveOpts={notes.saveOpts} onSaveOptsChange={notes.onSaveOptsChange}/>
+          <NotesPanel vault={notes.vault} clips={cardsHook.clips} onClipNoteChange={cardsHook.updateClipNote} onRemoveClip={cardsHook.removeClip} freeNote={freeNote} setFreeNote={setFreeNote} filename={filename} setFilename={setFilename} onSave={handleSave} saving={notes.saving} folders={notes.folders} noteFiles={notes.noteFiles} saveOpts={notes.saveOpts} onSaveOptsChange={notes.onSaveOptsChange} onClipAll={handleClipAll} hasCards={cards.length>0} unclippedCount={cards.length-cardsHook.clippedIds.size}/>
         </FloatingPanel>
         <FloatingPanel id="ask" corner="bl" title={t('panel.ask')} icon="AI">
           <AskPanel videoId={result?.youtube_video_id||null}/>

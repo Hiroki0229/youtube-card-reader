@@ -52,10 +52,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "zh-Hant": "目標筆記不存在，請重新選擇或改用新增",
         "en": "That note no longer exists. Pick another one, or create a new note.",
     },
-    # strftime 格式字串（新筆記的預設檔名）
+    # 新筆記的預設檔名模板（以 {dt} 代入日期時間字串，避免 Windows strftime 非 ASCII 編碼問題）
     "notes.default_filename": {
-        "zh-Hant": "筆記 %Y-%m-%d %H%M",
-        "en": "Note %Y-%m-%d %H%M",
+        "zh-Hant": "筆記 {dt}",
+        "en": "Note {dt}",
     },
 
     # ── 問模型 ──────────────────────────────────────────────

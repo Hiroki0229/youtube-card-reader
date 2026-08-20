@@ -15,7 +15,7 @@ export default function useNotesVault(initialSaveOpts) {
       setVault(v)
       if (v.configured) api.notesFolders().then(r => {
         setFolders(r.folders || [])
-        setSaveOpts(s => ({ ...s, folder: s.folder || r.default || '' }))
+        setSaveOpts(s => ({ ...s, folder: s.folder !== undefined && s.folder !== null ? s.folder : (r.default || '') }))
       })
     })
   }

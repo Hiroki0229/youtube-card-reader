@@ -401,3 +401,51 @@ button:disabled{cursor:not-allowed}
 .impl-pulse{flex:none;width:7px;height:7px;border-radius:50%;background:var(--accent);
   animation:impl-pulse 1.6s ease-in-out infinite}
 @keyframes impl-pulse{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:scale(1)}}
+
+/* ── 批次收進筆記與取消任務按鈕 ── */
+.btn-clip-all{
+  min-height:34px;border:1px solid var(--border);border-radius:var(--radius-control);
+  padding:6px 12px;background:var(--surface);color:var(--text);font-size:12.5px;
+  font-weight:700;white-space:nowrap;transition:all .2s ease;
+}
+.btn-clip-all:hover:not(:disabled){border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.btn-clip-all:active:not(:disabled){transform:scale(.97)}
+.btn-clip-all.on,.btn-clip-all:disabled{opacity:.48;cursor:default}
+
+.btn-clip-all-mini{
+  border:1px solid var(--border);border-radius:var(--radius-small);
+  background:var(--surface);color:var(--accent);padding:3px 8px;font-size:11px;
+  font-weight:700;cursor:pointer;transition:all .2s ease;
+}
+.btn-clip-all-mini:hover{border-color:var(--accent);background:var(--accent-soft)}
+
+.empty-clip-box{display:flex;flex-direction:column;gap:8px;align-items:center}
+.btn-clip-all-empty{
+  width:100%;min-height:36px;border:1px dashed var(--accent);border-radius:var(--radius-control);
+  background:var(--accent-soft);color:var(--accent);font-size:12.5px;font-weight:750;
+  cursor:pointer;transition:all .2s ease;
+}
+.btn-clip-all-empty:hover{background:var(--accent);color:#fff;border-style:solid}
+
+.btn-cancel-summarize{
+  background:var(--danger, #e53e3e)!important;border-color:var(--danger, #e53e3e)!important;color:#fff!important;
+  animation:pulse-subtle 1.8s infinite ease-in-out;
+}
+.btn-cancel-summarize:hover{
+  background:#c53030!important;border-color:#c53030!important;
+}
+.btn-progress-cancel{
+  margin-left:8px;border:1px solid var(--border);border-radius:var(--radius-small);
+  background:var(--surface);color:var(--danger, #e53e3e);padding:2px 7px;
+  font:600 10.5px/1.2 var(--mono);cursor:pointer;transition:all .2s ease;
+}
+.btn-progress-cancel:hover{
+  background:var(--accent-soft);border-color:var(--danger, #e53e3e);
+}
+.btn-cancel{
+  min-height:40px;border:1px solid var(--danger, #e53e3e);border-radius:var(--radius-control);
+  background:transparent;color:var(--danger, #e53e3e);padding:8px 18px;font-weight:750;
+  cursor:pointer;transition:all .2s ease;
+}
+.btn-cancel:hover{background:var(--accent-soft)}
+@keyframes pulse-subtle{0%,100%{opacity:1}50%{opacity:.88}}

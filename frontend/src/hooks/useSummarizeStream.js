@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import * as api from '../api.js'
 
 // 串流生成重點：封裝 NDJSON 事件解析、樂觀顯示與生成進度追蹤。
@@ -7,10 +7,23 @@ export default function useSummarizeStream({ initialResult = null, onSegError, t
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [progress, setProgress] = useState(null)
+  const abortRef = useRef(null)
+
+  function cancel() {
+    if (abortRef.current) {
+      abortRef.current.abort()
+      abortRef.current = null
+    }
+    setLoading(false)
+    setProgress(null)
+  }
 
   async function summarize(url, provider, deepVisual=false) {
     const u = url.trim()
     if (!u || loading) return null
+    cancel() // 若有進行中的舊任務先中止
+    const controller = new AbortController()
+    abortRef.current = controller
     const startedAt = Date.now()
     setLoading(true); setError(''); setResult(null); setProgress({ stage: 'source', completed: 0, total: 0, startedAt })
     const draft = { title: '', source_type: '', source_url: u, youtube_video_id: null, cards: [], model_used: '', segments: 0, transcript_source: null, content_type: 'other' }
@@ -46,15 +59,18 @@ export default function useSummarizeStream({ initialResult = null, onSegError, t
           draft.content_type = ev.content_type || draft.content_type
           setResult({ ...draft }); setProgress(null)
         }
-      })
-      if (!draft.cards.length) setError(t('error.noCards'))
+      }, controller.signal)
+      if (!draft.cards.length && !controller.signal.aborted) setError(t('error.noCards'))
     } catch (e) {
-      setError(t('error.generate', e.message))
+      if (e.name !== 'AbortError' && !controller.signal.aborted) {
+        setError(t('error.generate', e.message))
+      }
     } finally {
+      if (abortRef.current === controller) abortRef.current = null
       setLoading(false); setProgress(null)
     }
     return draft
   }
 
-  return { result, setResult, loading, error, progress, summarize }
+  return { result, setResult, loading, error, progress, summarize, cancel }
 }

@@ -32,6 +32,28 @@ export default function useCards(result, provider, initial = {}) {
     setClips(prev => [...prev, clip])
     return c
   }
+  function clipAll() {
+    if (!cards.length) return 0
+    const now = Date.now()
+    const newClips = []
+    cards.forEach((c, i) => {
+      if (!clippedIds.has(i)) {
+        newClips.push({
+          id: now + '-' + i, cardIndex: i, heading: c.heading, summary: c.summary,
+          transcript: pickField(c, TRANSCRIPT_KEYS), translation: pickField(c, TRANSLATION_KEYS),
+          visual: c.visual || null,
+          ts: c.timestamp_seconds ?? null,
+          link: result?.youtube_video_id != null ? youtubeLink(result.youtube_video_id, c.timestamp_seconds) : result?.source_url || null,
+          note: '',
+        })
+      }
+    })
+    if (newClips.length > 0) {
+      setClips(prev => [...prev, ...newClips])
+    }
+    return newClips.length
+  }
+
   function removeClip(id) { setClips(prev => prev.filter(c => c.id !== id)) }
   function updateClipNote(id, note) { setClips(prev => prev.map(c => c.id === id ? { ...c, note } : c)) }
 
@@ -54,7 +76,7 @@ export default function useCards(result, provider, initial = {}) {
 
   return {
     index, setIndex: i => jumpToCard(i, true), jumpToCard, startAt,
-    clips, setClips, clippedIds, clipCard, removeClip, updateClipNote,
+    clips, setClips, clippedIds, clipCard, clipAll, removeClip, updateClipNote,
     deepdives, ddLoading, handleDeepDive, resetForNewResult,
   }
 }

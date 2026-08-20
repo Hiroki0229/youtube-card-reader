@@ -76,7 +76,7 @@ export default function ImplementModal({ state, providers, onClose, onToast }) {
             <h2>{t('implement.heading')}</h2>
             <p className="settings-sub">{t('implement.sub', cardCount)}</p>
           </div>
-          <button className="settings-x" onClick={onClose} disabled={running} aria-label={t('implement.close')}>×</button>
+          <button className="settings-x" onClick={onClose} aria-label={t('implement.close')}>×</button>
         </div>
 
         <div className="settings-body">
@@ -176,7 +176,8 @@ export default function ImplementModal({ state, providers, onClose, onToast }) {
 
         <div className="settings-foot brief-foot">
           {started && !running && <button className="btn-paper" onClick={() => state.run({ autoRun: true })}>{t('implement.again')}</button>}
-          <button className="btn-paper" onClick={onClose} disabled={running}>{running ? t('implement.working') : t('implement.close')}</button>
+          {running && <button className="btn-cancel" onClick={state.cancel}>{t('implement.cancel')}</button>}
+          <button className="btn-paper" onClick={onClose}>{running ? t('implement.working') : t('implement.close')}</button>
         </div>
       </div>
     </div>
