@@ -22,7 +22,12 @@ export default function NotesPanel({ vault, clips, onClipNoteChange, onRemoveCli
         )
           :clips.map(c=>(
             <div className="clip-item" key={c.id}>
-              <div className="clip-head">{c.ts!=null&&<span className="ts">{fmtTime(c.ts)}</span>}<strong>{c.heading}</strong><button className="rm" onClick={()=>onRemoveClip(c.id)} aria-label={t('notes.remove')}>×</button></div>
+              <div className="clip-head">
+                {c.ts!=null&&<span className="ts">{fmtTime(c.ts)}</span>}
+                <strong>{c.heading}</strong>
+                {c.deepdive?.text&&<span className="chip-deepdive" title={c.deepdive.model||t('deck.deepdiveDone')}>✦ {t('deck.deepdive')}</span>}
+                <button className="rm" onClick={()=>onRemoveClip(c.id)} aria-label={t('notes.remove')}>×</button>
+              </div>
               <textarea placeholder={t('notes.thought')} value={c.note} onChange={e=>onClipNoteChange(c.id,e.target.value)}/>
             </div>
           ))

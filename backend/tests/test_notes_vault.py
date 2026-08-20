@@ -121,6 +121,24 @@ def test_save_notes_integration():
         fls = client.get("/notes/files?folder=Youtube Card Reader").json()
         assert saved_file.name in fls["files"]
 
+        # 9. 影片專屬子資料夾測試（Youtube Card Reader/【AEO】教學: 5大步驟）
+        video_title_folder = "Youtube Card Reader/【AEO】教學: 5大步驟"
+        res6 = client.post("/notes/save", json={
+            "filename": "AEO 答案搜索引擎最佳化：五大步驟深入解析",
+            "content": "# AEO Note\n\n## 重點摘錄\n\n### 核心觀念\n- 重點1\n\n#### 深入解析 (deepseek-v4-flash-free)\n深入解析全文細節",
+            "folder": video_title_folder,
+            "mode": "new",
+        })
+        assert res6.status_code == 200
+        video_sub_file = Path(res6.json()["saved_to"])
+        assert video_sub_file.exists()
+        # 確認父目錄包含 Youtube Card Reader 與清洗後的資料夾名稱
+        assert "Youtube Card Reader" in video_sub_file.parts
+        assert "【AEO】教學 5大步驟" in video_sub_file.parts
+        content = video_sub_file.read_text(encoding="utf-8")
+        assert "#### 深入解析 (deepseek-v4-flash-free)" in content
+        assert "深入解析全文細節" in content
+
     finally:
         config._cache["OBSIDIAN_VAULT_PATH"] = original_vault
         config._cache["OBSIDIAN_NOTES_FOLDER"] = original_folder

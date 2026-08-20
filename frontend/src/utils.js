@@ -17,6 +17,12 @@ export function summaryLines(summary){
   return summary.split(/\r?\n|(?=•\s)/).map(s=>s.replace(/^[•\-*]\s*/,'').trim()).filter(Boolean)
 }
 
+// 檔名/資料夾名稱安全清理
+export function sanitizeFolderName(name) {
+  if (!name) return ''
+  return name.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 100)
+}
+
 function knowledgeBlock(clips,t){
   const L=[]
   for(const c of clips){
@@ -26,6 +32,10 @@ function knowledgeBlock(clips,t){
     if(c.transcript){L.push(`> ${t('note.quote')}：`+c.transcript.trim().replace(/\n/g,'\n> '),'');if(c.translation?.trim())L.push('> '+c.translation.trim().replace(/\n/g,'\n> '),'')}
     if(c.visual?.trim())L.push(`> ${t('note.visual')}：`+c.visual.trim().replace(/\n/g,'\n> '),'')
     if(c.note?.trim())L.push(`> ${t('note.myNote')}：${c.note.trim()}`,'')
+    if(c.deepdive?.text?.trim()){
+      const modelSuffix=c.deepdive.model?` (${c.deepdive.model})`:''
+      L.push(`#### ${t('note.deepdive')}${modelSuffix}`,'',c.deepdive.text.trim(),'')
+    }
   }
   return L
 }

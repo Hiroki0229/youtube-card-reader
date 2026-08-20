@@ -233,6 +233,7 @@ export const STRINGS = {
     'note.quote': 'Quote',
     'note.visual': 'On-screen',
     'note.myNote': 'Note',
+    'note.deepdive': 'Deep dive',
     'note.scratch': 'Scratch notes',
   },
 
@@ -463,6 +464,7 @@ export const STRINGS = {
     'note.quote': '原文',
     'note.visual': '畫面',
     'note.myNote': '筆記',
+    'note.deepdive': '深入解析',
     'note.scratch': '隨手筆記',
   },
 }

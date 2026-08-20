@@ -27,6 +27,7 @@ export default function useCards(result, provider, initial = {}) {
       visual: c.visual || null,
       ts: c.timestamp_seconds ?? null,
       link: result?.youtube_video_id != null ? youtubeLink(result.youtube_video_id, c.timestamp_seconds) : result?.source_url || null,
+      deepdive: deepdives[i] || null,
       note: '',
     }
     setClips(prev => [...prev, clip])
@@ -44,6 +45,7 @@ export default function useCards(result, provider, initial = {}) {
           visual: c.visual || null,
           ts: c.timestamp_seconds ?? null,
           link: result?.youtube_video_id != null ? youtubeLink(result.youtube_video_id, c.timestamp_seconds) : result?.source_url || null,
+          deepdive: deepdives[i] || null,
           note: '',
         })
       }
@@ -64,7 +66,9 @@ export default function useCards(result, provider, initial = {}) {
     try {
       const data = await api.deepdive(provider, result.title, { heading: c.heading, summary: c.summary, timestamp_seconds: c.timestamp_seconds ?? null })
       const text = typeof data === 'string' ? data : (data.content || JSON.stringify(data))
-      setDeepdives(prev => ({ ...prev, [i]: { text, model: (data && data.model_used) || '' } }))
+      const ddObj = { text, model: (data && data.model_used) || '' }
+      setDeepdives(prev => ({ ...prev, [i]: ddObj }))
+      setClips(prev => prev.map(clip => clip.cardIndex === i ? { ...clip, deepdive: ddObj } : clip))
     } finally {
       setDdLoading(null)
     }

@@ -31,7 +31,8 @@ def _safe_relpath(rel: str) -> Path:
     rel = (rel or "").replace("\\", "/")
     parts = []
     for seg in rel.split("/"):
-        seg = re.sub(r'[:*?"<>|]', "", seg).strip().strip(".")
+        seg = re.sub(r'[:*?"<>|]', "", seg)
+        seg = re.sub(r'\s+', " ", seg).strip().strip(".")
         if seg and seg not in ("", ".", ".."):
             parts.append(seg)
     return Path(*parts) if parts else Path()

@@ -97,7 +97,7 @@ export default function App() {
   })
   const { result } = stream
   const cardsHook = useCards(result, provider, { index: SAVED.index, deepdives: SAVED.deepdives, clips: SAVED.clips })
-  const notes = useNotesVault(SAVED.saveOpts)
+  const notes = useNotesVault(SAVED.saveOpts, result?.title || '')
   const implement = useImplement({ result, provider, t })
 
   // 摘要標題一到就當作預設檔名
