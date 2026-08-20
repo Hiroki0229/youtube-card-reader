@@ -78,7 +78,12 @@ def _parse_cards(raw: str, language: str) -> dict:
     raw = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     data = json.loads(repair_json(raw))
     if isinstance(data, dict):
-        data["title"] = to_traditional(data.get("title"), language)
+        raw_title = data.get("title")
+        if isinstance(raw_title, str):
+            clean_title = re.sub(r'^[【\[\("“\'「『]+|[】\]\)"”\'」』]+$', '', raw_title.strip()).strip()
+            data["title"] = to_traditional(clean_title or raw_title, language)
+        else:
+            data["title"] = to_traditional(raw_title, language)
         data["content_type"] = _norm_content_type(data.get("content_type"))
         for card in data.get("cards") or []:
             for field in _ZH_FIELDS:

@@ -100,8 +100,13 @@ export default function App() {
   const notes = useNotesVault(SAVED.saveOpts, result?.title || '')
   const implement = useImplement({ result, provider, t })
 
-  // 摘要標題一到就當作預設檔名
-  useEffect(()=>{ if(result?.title) setFilename(f=>f||result.title) },[result?.title])
+  // 卡片一生成或收錄時，以卡片標題做預設筆記標題
+  useEffect(()=>{
+    if(!filename && cards.length>0){
+      setFilename(cardsHook.clips[0]?.heading || cards[0].heading || '')
+    }
+  },[cards.length, cardsHook.clips.length])
+
   // 工作階段持久化：任何整理狀態改變就寫回 localStorage
   useEffect(()=>{
     try{localStorage.setItem(SKEY,JSON.stringify({url,provider,result,index:cardsHook.index,deepdives:cardsHook.deepdives,clips:cardsHook.clips,freeNote,filename,saveOpts:notes.saveOpts}))}catch{}
@@ -127,16 +132,28 @@ export default function App() {
     stream.cancel()
     showToast(t('toast.cancelled'))
   }
-  function clipCard(i){const c=cardsHook.clipCard(i); if(c)showToast(t('toast.clipped',c.heading))}
+  function clipCard(i){
+    const c=cardsHook.clipCard(i)
+    if(c){
+      if(!filename || filename===result?.title){
+        setFilename(c.heading)
+      }
+      showToast(t('toast.clipped',c.heading))
+    }
+  }
   function handleClipAll(){
     const count=cardsHook.clipAll()
+    if(!filename && cards.length>0){
+      setFilename(cards[0].heading)
+    }
     if(count>0) showToast(t('toast.clippedAll',count))
     else if(cards.length>0) showToast(t('deck.clippedAll'))
   }
   async function onDeepDive(i){try{await cardsHook.handleDeepDive(i)}catch(e){showToast(t('toast.deepdiveFailed',e.message),true)}}
   async function handleSave(){
     try{
-      const res=await notes.save({title:filename||result?.title||t('note.summary'),sourceUrl:result?.source_url||url,clips:cardsHook.clips,freeNote,t})
+      const defaultTitle = cardsHook.clips[0]?.heading || cards[cardsHook.index]?.heading || result?.title || t('note.summary')
+      const res=await notes.save({title:filename.trim()||defaultTitle,sourceUrl:result?.source_url||url,clips:cardsHook.clips,freeNote,t})
       showToast(res.mode==='append'?t('toast.appendedTo',res.saved_to):t('toast.savedTo',res.saved_to))
     }catch(e){showToast(e.message===t('error.pickNote')?e.message:t('toast.saveFailed',e.message),true)}
   }

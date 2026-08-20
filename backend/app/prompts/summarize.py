@@ -115,7 +115,7 @@ def summarize_prompt(content: dict, language: str = languages.DEFAULT) -> str:
 
 輸出以下 JSON（不加 markdown、不加 ```）：
 {{
-  "title": "內容整體標題",
+  "title": "內容核心主題名稱（12字以內簡短主題，適合作為分類資料夾名，不帶【】、引號或冗贅修飾詞）",
   "content_type": "tutorial",
   "cards": [
     {{
@@ -133,6 +133,7 @@ def summarize_prompt(content: dict, language: str = languages.DEFAULT) -> str:
 {_IMPORTANCE}
 
 規則：
+- title：提煉為 12 字以內的簡潔核心主題（例如「AEO 答案引擎最佳化」或「React 19 實戰教學」），不要照抄冗長的點擊率標題，不要包含「【】」、「！」等裝飾符號
 - 做法：把這段素材**從頭到尾掃過一遍**，依上面的判準先在心裡列出所有知識單位，再逐一成卡。漏掉知識就是失敗
 - 顆粒度：一張卡承載一個可獨立理解的知識單位。同一個操作的步驟 1-2-3 屬於同一張卡；
   但「用 email 註冊」和「匯入舊 AI 的記憶」是兩件不同的事，要分成兩張。
